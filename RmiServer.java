@@ -57,7 +57,7 @@ public interface RmiServer {
         String url = "rmi://" + host + ":" + Integer.toString(port) + "/" + serverName;
 
         // bind remote object to rmiregistry
-        System.out.println("bind" + url + "to rmiregistry");
+        System.out.println("bind " + url + " to rmiregistry");
         Naming.rebind(url, remoteObject);
 
         System.out.println("Rmi server starting...");

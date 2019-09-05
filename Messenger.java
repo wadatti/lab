@@ -15,6 +15,6 @@ public interface Messenger extends Remote {
      */
     public default String send(String message) throws RemoteException {
         System.out.println("client says " + message + ".");
-        return "send" + message + "toserver.";
+        return "send " + message + " toserver.";
     }
 }
