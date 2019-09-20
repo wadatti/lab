@@ -1,5 +1,6 @@
 import java.util.Queue;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ThreadFactory;
 
 /**
  * taskQueue dispatcher thread
@@ -23,9 +24,10 @@ public class DispatchTask implements Runnable {
     @Override
     public void run() {
         while (true) {
-            Runnable task = taskQueue.poll();
+            Runnable task = taskQueue.peek();
             if (task != null) {
                 exec.execute(task);
+                taskQueue.remove();
             }
         }
     }

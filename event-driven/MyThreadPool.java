@@ -1,7 +1,6 @@
-import java.io.FileWriter;
 import java.io.IOException;
-import java.util.ArrayDeque;
 import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -10,7 +9,7 @@ import java.util.concurrent.Executors;
  */
 public class MyThreadPool {
     private ExecutorService exec;
-    private Queue<Runnable> taskQueue = new ArrayDeque<Runnable>();
+    private Queue<Runnable> taskQueue = new ConcurrentLinkedDeque<>();
     private DispatchTask dispatchTask;
 
     /**
@@ -32,9 +31,6 @@ public class MyThreadPool {
      * @param task
      */
     public void execute(Runnable task) throws IOException {
-        java.io.FileWriter fw = new FileWriter("log.txt", false);
-        fw.write("execute log\n");
-        fw.close();
         taskQueue.add(task);
     }
 
@@ -42,7 +38,7 @@ public class MyThreadPool {
      * shutdown thread pool
      */
     public void shutdown() {
-        while (taskQueue.peek() != null) {
+        while (taskQueue.size() != 0) {
         }
         exec.shutdown();
     }
