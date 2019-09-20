@@ -7,7 +7,7 @@ public class Main {
         ExecutorService exec = Executors.newFixedThreadPool(2);
 
         for (int i = 0; i < 5; i++) {
-            exec.submit(new Task(i));
+            exec.execute(new Task(i));
         }
         exec.shutdown();
         System.out.println("main End");
