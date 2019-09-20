@@ -56,22 +56,33 @@ public class Instrument {
     }
 
 //    {
-//        java.io.FileWriter fw = new java.io.FileWriter("log.txt", false);
+//        java.io.FileWriter fw = new java.io.FileWriter("log.txt", true);
 //        fw.write("Lock(" + $0.getClass().getName() + "," + Thread.currentThread().getId() + ")\n");
 //        fw.close();
 //        $_ = $proceed($$);
 //    }
 //    {
-//        java.io.FileWriter fw = new java.io.FileWriter("log.txt", false);
+//        java.io.FileWriter fw = new java.io.FileWriter("log.txt", true);
 //        fw.write("unLock(" + $0.getClass().getName() + "," + Thread.currentThread().getId() + ")\n");
 //        fw.close();
 //        $_ = $proceed($$);
 //    }
 
+    private static void instrumentMain() throws CannotCompileException, NotFoundException, IOException {
+        ClassPool classPool = ClassPool.getDefault();
+        CtClass mainClass = classPool.get("Main");
+        CtMethod mainMethod = mainClass.getDeclaredMethod("main");
+
+        mainMethod.insertBefore("java.io.FileWriter fw = new java.io.FileWriter(\"log.txt\", false);\n" +
+                "    fw.write(\"----------------(ClassName,ThreadID)\\n\");\n" +
+                "    fw.close();");
+        mainClass.writeFile();
+    }
 
 
     public static void main(String[] args) throws NotFoundException, CannotCompileException, IOException {
         instrumentAccount();
+        instrumentMain();
         System.out.println("instrument!!");
 
     }
