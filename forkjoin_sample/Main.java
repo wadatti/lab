@@ -14,7 +14,7 @@ public class Main {
     }
 
     private static List<Integer> newIntegerList() {
-        int p = 10, n = 1;
+        int p = 4, n = 1;
         for (int i = 0; i < p; i++) n *= 2;
         List<Integer> list = new ArrayList<>(n);
         for (int i = 0; i < n; i++) list.add(i);
