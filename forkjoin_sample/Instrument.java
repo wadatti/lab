@@ -10,9 +10,9 @@ public class Instrument {
         CtClass mainClass = classPool.get("Main");
         CtMethod mainMethod = mainClass.getDeclaredMethod("main");
 
-        mainMethod.insertBefore("java.io.FileWriter fw = new java.io.FileWriter(\"log.txt\", false);\n" +
-                "    fw.write(\"----------------(taskName,ThreadID,taskID)\\n\");\n" +
-                "    fw.close();");
+        mainMethod.insertBefore("MyLogger log = new MyLogger();\n" +
+                "        log.setDaemon(true);\n" +
+                "        log.start();");
 
         CtField field1 = new CtField(CtClass.intType, "wrapper_eventID", mainClass);
         field1.setModifiers(Modifier.STATIC);
@@ -22,14 +22,10 @@ public class Instrument {
         mainMethod.instrument(new ExprEditor() {
             public void edit(MethodCall m) throws CannotCompileException {
                 if (m.getMethodName().equals("invoke")) {
-                    m.replace("{\n" +
-                            "        java.io.FileWriter fw = new java.io.FileWriter(\"log.txt\", true);\n" +
-                            "        fw.write(\"ThreadFork(\" + ((WrapperRecursiveTask) $1).taskName + \",\" + Thread.currentThread().getId() + \",\" + ((WrapperRecursiveTask) $1).taskID + \")\\n\");\n" +
-                            "        fw.close();\n" +
+                    m.replace("{" +
+                            "        MyLogger.writeLog(\"ThreadFork(\" + ((WrapperRecursiveTask) $1).taskName + \",\" + Thread.currentThread().getId() + \",\" + ((WrapperRecursiveTask) $1).taskID + \")\");\n" +
                             "        $_ = $proceed($$);\n" +
-                            "        java.io.FileWriter fw = new java.io.FileWriter(\"log.txt\", true);\n" +
-                            "        fw.write(\"ThreadJoin(\" + ((WrapperRecursiveTask) $1).taskName + \",\" + Thread.currentThread().getId() + \",\" + ((WrapperRecursiveTask) $1).taskID + \")\\n\");\n" +
-                            "        fw.close();\n" +
+                            "        MyLogger.writeLog(\"ThreadJoin(\" + ((WrapperRecursiveTask) $1).taskName + \",\" + Thread.currentThread().getId() + \",\" + ((WrapperRecursiveTask) $1).taskID + \")\");\n" +
                             "        ((WrapperRecursiveTask) $1).taskID++;\n" +
                             "    }");
                 }
@@ -38,18 +34,11 @@ public class Instrument {
         mainClass.writeFile();
     }
 
-//    java.io.FileWriter fw = new java.io.FileWriter("log.txt", false);
-//    fw.write("----------------(taskName,ThreadID,taskID)\n");
-//    fw.close();
 
 //    {
-//        java.io.FileWriter fw = new java.io.FileWriter("log.txt", true);
-//        fw.write("ThreadFork(" + ((WrapperRecursiveTask) $1).taskName + "," + Thread.currentThread().getId() + "," + ((WrapperRecursiveTask) $1).taskID + ")\n");
-//        fw.close();
+//        MyLogger.writeLog("ThreadFork(" + ((WrapperRecursiveTask) $1).taskName + "," + Thread.currentThread().getId() + "," + ((WrapperRecursiveTask) $1).taskID + ")\n");
 //        $_ = $proceed($$);
-//        java.io.FileWriter fw = new java.io.FileWriter("log.txt", true);
-//        fw.write("ThreadJoin(" + ((WrapperRecursiveTask) $1).taskName + "," + Thread.currentThread().getId() + "," + ((WrapperRecursiveTask) $1).taskID + ")\n");
-//        fw.close();
+//        MyLogger.writeLog("ThreadJoin(" + ((WrapperRecursiveTask) $1).taskName + "," + Thread.currentThread().getId() + "," + ((WrapperRecursiveTask) $1).taskID + ")\n");
 //        ((WrapperRecursiveTask) $1).taskID++;
 //    }
 
@@ -65,13 +54,9 @@ public class Instrument {
             public void edit(MethodCall m) throws CannotCompileException {
                 if (m.getMethodName().equals("join")) {
                     m.replace("{\n" +
-                            "        java.io.FileWriter fw = new java.io.FileWriter(\"log.txt\", true);\n" +
-                            "        fw.write(\"ThreadFork(\" + taskName + \",\" + Thread.currentThread().getId() + \",\" + taskID + \")\\n\");\n" +
-                            "        fw.close();\n" +
+                            "        MyLogger.writeLog(\"ThreadFork(\" + taskName + \",\" + Thread.currentThread().getId() + \",\" + taskID + \")\");\n" +
                             "        $_ = $proceed();\n" +
-                            "        java.io.FileWriter fw = new java.io.FileWriter(\"log.txt\", true);\n" +
-                            "        fw.write(\"ThreadJoin(\" + taskName + \",\" + Thread.currentThread().getId() + \",\" + taskID + \")\\n\");\n" +
-                            "        fw.close();\n" +
+                            "        MyLogger.writeLog(\"ThreadJoin(\" + taskName + \",\" + Thread.currentThread().getId() + \",\" + taskID + \")\");\n" +
                             "    }");
                 }
             }
@@ -82,13 +67,9 @@ public class Instrument {
     }
 
 //    {
-//        java.io.FileWriter fw = new java.io.FileWriter("log.txt", true);
-//        fw.write("ThreadFork(" + taskName + "," + Thread.currentThread().getId() + "," + taskID + ")\n");
-//        fw.close();
+//        MyLogger.writeLog("ThreadFork(" + taskName + "," + Thread.currentThread().getId() + "," + taskID + ")\n");
 //        $_ = $proceed();
-//        java.io.FileWriter fw = new java.io.FileWriter("log.txt", true);
-//        fw.write("ThreadJoin(" + taskName + "," + Thread.currentThread().getId() + "," + taskID + ")\n");
-//        fw.close();
+//        MyLogger.writeLog("ThreadJoin(" + taskName + "," + Thread.currentThread().getId() + "," + taskID + ")\n");
 //    }
 
 
