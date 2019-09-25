@@ -11,11 +11,10 @@ public class Instrument {
         CtClass wrapperClass = classPool.get("WrapperRunnable");
         taskClass.setSuperclass(wrapperClass);
         CtMethod runMethod = taskClass.getDeclaredMethod("run");
-        runMethod.insertBefore("java.io.FileWriter fw = new java.io.FileWriter(\"log.txt\", true);\n" +
-                "    fw.write(\"BeginEvent(\" + this.eventKind +\",\" + Thread.currentThread().getId() +\",\" + this.eventID +\")\\n\");\n" +
-                "    fw.close();");
+        runMethod.insertBefore(" MyLogger.writeLog(\"BeginEvent(\" + this.eventKind +\",\" + Thread.currentThread().getId() +\",\" + this.eventID +\")\");");
         taskClass.writeFile();
     }
+
 
 //    java.io.FileWriter fw = new java.io.FileWriter("log.txt", true);
 //    fw.write("BeginEvent(" + this.eventKind +"," + java.lang.Thread().getID() +"," + this.eventID +")\n");
@@ -27,12 +26,14 @@ public class Instrument {
         CtClass param[] = {CtClass.intType};
 
         CtMethod method = myThreadPoolClass.getDeclaredMethod("execute");
-        method.insertBefore("java.io.FileWriter fw = new java.io.FileWriter(\"log.txt\", true);\n" +
-                "        fw.write(\"createEvent(\" + ((WrapperRunnable)$1).eventKind + \",\" + Thread.currentThread().getId() + \",\" + ((WrapperRunnable)$1).eventID + \")\\n\");\n" +
-                "        fw.close();");
+        method.insertBefore("MyLogger.writeLog(\"createEvent(\" + ((WrapperRunnable)$1).eventKind + \",\" + Thread.currentThread().getId() + \",\" + ((WrapperRunnable)$1).eventID + \")\");");
 
         myThreadPoolClass.writeFile();
+
+
     }
+
+
 //    MyThreadPool.execute insertbefore
 //    java.io.FileWriter fw = new java.io.FileWriter("log.txt", true);
 //    fw.write("createEvent(" + ((WrapperRunnable)$1).eventKind + "," + Thread.currentThread().getId() + "," + ((WrapperRunnable)$1).eventID + ")\n");
@@ -43,9 +44,9 @@ public class Instrument {
         CtClass mainClass = classPool.get("Main");
         CtMethod mainMethod = mainClass.getDeclaredMethod("main");
 
-        mainMethod.insertBefore("java.io.FileWriter fw = new java.io.FileWriter(\"log.txt\", false);\n" +
-                "    fw.write(\"------Event(eventKind,ThreadID,eventID)\\n\");\n" +
-                "    fw.close();");
+        mainMethod.insertBefore("MyLogger log = new MyLogger();\n" +
+                "        log.setDaemon(true);\n" +
+                "        log.start();");
 
         CtField field1 = new CtField(CtClass.intType, "wrapper_eventID", mainClass);
         field1.setModifiers(Modifier.STATIC);
@@ -66,12 +67,7 @@ public class Instrument {
         });
         mainClass.writeFile();
     }
-
-//    Main insertbefore
-//    java.io.FileWriter fw = new java.io.FileWriter("log.txt", false);
-//    fw.write("------Event(eventKind,ThreadID,eventID)\n");
-//    fw.close();
-
+    
 
 //    MyThreadPool.execute replace
 //    {
