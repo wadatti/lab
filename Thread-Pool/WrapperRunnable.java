@@ -8,14 +8,10 @@ public class WrapperRunnable implements Runnable {
     }
 
     void begin() throws IOException {
-        java.io.FileWriter fw = new java.io.FileWriter("log.txt", true);
-        fw.write("ThreadBegin(" + this.getClass().getName() + "," + Thread.currentThread().getId() + "," + this.eventID + ")\n");
-        fw.close();
+        MyLogger.writeLog("ThreadBegin(" + this.getClass().getName() + "," + Thread.currentThread().getId() + "," + this.eventID + ")\n");
     }
 
     void end() throws IOException {
-        java.io.FileWriter fw = new java.io.FileWriter("log.txt", true);
-        fw.write("ThreadEnd(" + this.getClass().getName() + "," + Thread.currentThread().getId() + "," + this.eventID + ")\n");
-        fw.close();
+        MyLogger.writeLog("ThreadEnd(" + this.getClass().getName() + "," + Thread.currentThread().getId() + "," + this.eventID + ")\n");
     }
 }

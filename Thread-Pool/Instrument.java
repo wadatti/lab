@@ -11,16 +11,14 @@ public class Instrument {
         ClassPool classPool = ClassPool.getDefault();
         CtClass mainClass = classPool.get("Main");
         CtMethod mainMethod = mainClass.getDeclaredMethod("main");
-        mainMethod.insertBefore("java.io.FileWriter fw = new java.io.FileWriter(\"log.txt\", false);\n" +
-                "    fw.write(\"------(eventKind,ThreadID,eventID)\\n\");\n" +
-                "    fw.close();");
+        mainMethod.insertBefore("MyLogger log = new MyLogger();\n" +
+                "        log.setDaemon(true);\n" +
+                "        log.start();");
         mainMethod.instrument(new ExprEditor() {
             public void edit(MethodCall m) throws CannotCompileException {
                 if (m.getMethodName().equals("execute")) {
                     m.replace("{\n" +
-                            "        java.io.FileWriter fw = new java.io.FileWriter(\"log.txt\", true);\n" +
-                            "        fw.write(\"ThreadPoolExecute(\" + $1.getClass().getName() + \",\" + Thread.currentThread().getId() + \",\" + ((WrapperRunnable) $1).eventID + \")\\n\");\n" +
-                            "        fw.close();\n" +
+                            "        MyLogger.writeLog(\"ThreadPoolExecute(\" + $1.getClass().getName() + \",\" + Thread.currentThread().getId() + \",\" + ((WrapperRunnable) $1).eventID + \")\");\n" +
                             "        $_ = $proceed($$);\n" +
                             "    }");
                 }
@@ -29,14 +27,12 @@ public class Instrument {
         mainClass.writeFile();
     }
 
-//    java.io.FileWriter fw = new java.io.FileWriter("log.txt", false);
-//    fw.write("------(eventKind,ThreadID,eventID)\n");
-//    fw.close();
+//    MyLogger log = new MyLogger();
+//    log.setDaemon(true);
+//    log.start();
 
 //    {
-//        java.io.FileWriter fw = new java.io.FileWriter("log.txt", true);
-//        fw.write("ThreadPoolExecute(" + $1.getClass().getName() + "," + Thread.currentThread().getId() + "," + ((WrapperRunnable) $1).eventID + ")\n");
-//        fw.close();
+//        MyLogger.writeLog("ThreadPoolExecute(" + $1.getClass().getName() + "," + Thread.currentThread().getId() + "," + ((WrapperRunnable) $1).eventID + ")\n");
 //        $_ = $proceed($$);
 //    }
 
