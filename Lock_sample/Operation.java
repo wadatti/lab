@@ -7,7 +7,7 @@ public class Operation implements Runnable {
 
     @Override
     public void run() {
-        for (int i = 0; i < 100; i++) {
+        for (int i = 0; i < 10000; i++) {
             if (i % 2 == 0) account.deposit(200);
             else account.withdraw(200);
         }

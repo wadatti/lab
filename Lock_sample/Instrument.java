@@ -15,16 +15,12 @@ public class Instrument {
             public void edit(MethodCall m) throws CannotCompileException {
                 if (m.getMethodName().equals("lock")) {
                     m.replace("{\n" +
-                            "        java.io.FileWriter fw = new java.io.FileWriter(\"log.txt\", true);\n" +
-                            "        fw.write(\"Lock(\" + $0.getClass().getName() + \",\" + Thread.currentThread().getId() + \")\\n\");\n" +
-                            "        fw.close();\n" +
+                            "        MyLogger.writeLog(\"Lock(\" + $0.getClass().getName() + \",\" + Thread.currentThread().getId() + \")\");\n" +
                             "        $_ = $proceed($$);\n" +
                             "    }");
                 } else if (m.getMethodName().equals("unlock")) {
                     m.replace("{\n" +
-                            "        java.io.FileWriter fw = new java.io.FileWriter(\"log.txt\", true);\n" +
-                            "        fw.write(\"unLock(\" + $0.getClass().getName() + \",\" + Thread.currentThread().getId() + \")\\n\");\n" +
-                            "        fw.close();\n" +
+                            "        MyLogger.writeLog(\"unLock(\" + $0.getClass().getName() + \",\" + Thread.currentThread().getId() + \")\");\n" +
                             "        $_ = $proceed($$);\n" +
                             "    }");
                 }
@@ -36,16 +32,12 @@ public class Instrument {
             public void edit(MethodCall m) throws CannotCompileException {
                 if (m.getMethodName().equals("lock")) {
                     m.replace("{\n" +
-                            "        java.io.FileWriter fw = new java.io.FileWriter(\"log.txt\", true);\n" +
-                            "        fw.write(\"Lock(\" + $0.getClass().getName() + \",\" + Thread.currentThread().getId() + \")\\n\");\n" +
-                            "        fw.close();\n" +
+                            "        MyLogger.writeLog(\"Lock(\" + $0.getClass().getName() + \",\" + Thread.currentThread().getId() + \")\");\n" +
                             "        $_ = $proceed($$);\n" +
                             "    }");
                 } else if (m.getMethodName().equals("unlock")) {
                     m.replace("{\n" +
-                            "        java.io.FileWriter fw = new java.io.FileWriter(\"log.txt\", true);\n" +
-                            "        fw.write(\"unLock(\" + $0.getClass().getName() + \",\" + Thread.currentThread().getId() + \")\\n\");\n" +
-                            "        fw.close();\n" +
+                            "        MyLogger.writeLog(\"unLock(\" + $0.getClass().getName() + \",\" + Thread.currentThread().getId() + \")\");\n" +
                             "        $_ = $proceed($$);\n" +
                             "    }");
                 }
@@ -55,27 +47,14 @@ public class Instrument {
         accountClass.writeFile();
     }
 
-//    {
-//        java.io.FileWriter fw = new java.io.FileWriter("log.txt", true);
-//        fw.write("Lock(" + $0.getClass().getName() + "," + Thread.currentThread().getId() + ")\n");
-//        fw.close();
-//        $_ = $proceed($$);
-//    }
-//    {
-//        java.io.FileWriter fw = new java.io.FileWriter("log.txt", true);
-//        fw.write("unLock(" + $0.getClass().getName() + "," + Thread.currentThread().getId() + ")\n");
-//        fw.close();
-//        $_ = $proceed($$);
-//    }
 
     private static void instrumentMain() throws CannotCompileException, NotFoundException, IOException {
         ClassPool classPool = ClassPool.getDefault();
         CtClass mainClass = classPool.get("Main");
         CtMethod mainMethod = mainClass.getDeclaredMethod("main");
 
-        mainMethod.insertBefore("java.io.FileWriter fw = new java.io.FileWriter(\"log.txt\", false);\n" +
-                "    fw.write(\"----------------(ClassName,ThreadID)\\n\");\n" +
-                "    fw.close();");
+        mainMethod.insertBefore("MyLogger log = new MyLogger(Thread.currentThread());\n" +
+                "        log.start();");
         mainClass.writeFile();
     }
 
