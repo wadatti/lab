@@ -1,3 +1,5 @@
+import sun.tools.jconsole.inspector.XNodeInfo;
+
 import java.util.*;
 
 public class Node {
@@ -17,12 +19,6 @@ public class Node {
 
     public Node(String event) {
         this.event = event;
-    }
-
-    public Node(String event, int index, int chain) {
-        this.event = event;
-        this.index = index;
-        this.chain = chain;
     }
 
     public void setIndex(int index) {
@@ -82,8 +78,6 @@ public class Node {
 
     public void setOffChainSuccessors(Collection<Node> offChainSuccessors) {
         this.offChainSuccessors.addAll(offChainSuccessors);
-        for (Node node : offChainSuccessors) {
-        }
     }
 
     public void retainOffChainSuccessors(Collection<Node> offChainSuccessors) {
@@ -143,54 +137,52 @@ public class Node {
         return offChain;
     }
 
-    private void getSuccessors(Set<Node> successors) {
-        if (successors.contains(this))
-            return;
-        successors.add(this);
-        for (Node node : immediateSuccessors)
-            node.getSuccessors(successors);
-    }
-
     public Set<Node> getAllSuccessors() {
-        Set<Node> successors = new HashSet<>();
-        for (Node node : immediateSuccessors)
-            node.getSuccessors(successors);
+        Set<Node> successors = new HashSet<>(this.immediateSuccessors);
+        Queue<Node> exploreNodes = new ArrayDeque<>(this.immediateSuccessors);
+        Node node;
+        while ((node = exploreNodes.poll()) != null)
+            for (Node n : node.getImmediateSuccessors())
+                if (successors.add(n))
+                    exploreNodes.add(n);
         return successors;
     }
 
     public Node unusedSuccessor() {
-        Set<Node> unexploredNodes = new HashSet<>(this.getImmediateSuccessors());
-        Set<Node> temp = new HashSet<>();
-        while (true) {
-            int currentSize = unexploredNodes.size();
-            for (Node n : unexploredNodes) {
-                temp.addAll(n.getImmediateSuccessors());
-                if (!n.isUsed()) return n;
+        for (Node node : this.immediateSuccessors)
+            if (!node.used)
+                return node;
+
+        Set<Node> successors = new HashSet<>(this.immediateSuccessors);
+        Queue<Node> exploreNodes = new ArrayDeque<>(this.immediateSuccessors);
+        Node node;
+        while ((node = exploreNodes.poll()) != null)
+            for (Node n : node.getImmediateSuccessors()) {
+                if (successors.add(n)) {
+                    if (!n.used)
+                        return n;
+                    exploreNodes.add(n);
+                }
             }
-            unexploredNodes.addAll(temp);
-            if (unexploredNodes.size() == currentSize) break;
-        }
-        for (Node n : unexploredNodes) {
-            if (!n.isUsed()) return n;
-        }
         return null;
     }
 
     public boolean isUnusedSuccessors() {
-        Set<Node> unexploredNodes = new HashSet<>(this.getImmediateSuccessors());
-        Set<Node> temp = new HashSet<>();
-        while (true) {
-            int currentSize = unexploredNodes.size();
-            for (Node n : unexploredNodes) {
-                temp.addAll(n.getImmediateSuccessors());
-                if (!n.isUsed()) return true;
+        for (Node node : this.immediateSuccessors)
+            if (!node.used)
+                return true;
+
+        Set<Node> successors = new HashSet<>(this.immediateSuccessors);
+        Queue<Node> exploreNodes = new ArrayDeque<>(this.immediateSuccessors);
+        Node node;
+        while ((node = exploreNodes.poll()) != null)
+            for (Node n : node.getImmediateSuccessors()) {
+                if (successors.add(n)) {
+                    if (!n.used)
+                        return true;
+                    exploreNodes.add(n);
+                }
             }
-            unexploredNodes.addAll(temp);
-            if (unexploredNodes.size() == currentSize) break;
-        }
-        for (Node n : unexploredNodes) {
-            if (!n.isUsed()) return true;
-        }
         return false;
     }
 
@@ -205,27 +197,27 @@ public class Node {
     public boolean isReachable(Node destination) {
         // (1)
         if (!destination.offChain) {
-            if (this.successors.contains(destination)) {
+            if (this.successors.contains(destination))
                 return true;
-            } else return this.successorsIndices.containsKey(destination.chain) && this.successorsIndices.get(destination.chain) < destination.index;
+            else
+                return this.successorsIndices.containsKey(destination.chain) && this.successorsIndices.get(destination.chain) < destination.index;
         }
 
         // (2)
         else if (!this.offChain) {
-            if (destination.chainPredecessors.contains(this)) {
+            if (destination.chainPredecessors.contains(this))
                 return true;
-            } else return destination.chainPredecessorsIndices.containsKey(this.chain) && this.index < destination.chainPredecessorsIndices.get(this.chain);
+            else
+                return destination.chainPredecessorsIndices.containsKey(this.chain) && this.index < destination.chainPredecessorsIndices.get(this.chain);
         }
 
         // (3)
         else {
-            if (this.offChainSuccessors.contains(destination)) {
+            if (this.offChainSuccessors.contains(destination))
                 return true;
-            }
-            for (Map.Entry<Integer, Integer> index : this.successorsIndices.entrySet()) {
+            for (Map.Entry<Integer, Integer> index : this.successorsIndices.entrySet())
                 if (destination.chainPredecessorsIndices.containsKey(index.getKey()) && destination.chainPredecessorsIndices.get(index.getKey()) >= index.getValue())
                     return true;
-            }
         }
 
         return false;
@@ -235,5 +227,13 @@ public class Node {
     @Override
     public String toString() {
         return event;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (o instanceof Node) {
+            return this.event.equals((((Node) o).event));
+        }
+        return false;
     }
 }

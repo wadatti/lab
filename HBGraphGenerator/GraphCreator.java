@@ -1,19 +1,20 @@
-import io.swagger.models.auth.In;
-
 import java.io.*;
 import java.util.*;
 
-public class Main {
+public class GraphCreator {
 
-    private static int size = 7000;
-    private static double probability = 0.5;
-    private static double attenuation = 0.95;
-    private static int threshold = (int) Math.sqrt(size);
+    private static int threshold;
     private static int chainNum;
     private static Map<Integer, Set<Node>> chain = new HashMap<>();
     private static Set<Node> offNodes = new HashSet<>();
     private static Set<Node> chainNodes = new HashSet<>();
-    private static Set<Node> graph = new HashSet<>();
+
+    public Set<Node> CreateGraph(Set<Node> graph) {
+        threshold = (int) Math.sqrt(graph.size());
+        graph = indexAssignment(graph);
+        graph = chainReduction(graph);
+        return graph;
+    }
 
     public static boolean isExistUnusedNode(Set<Node> nodes) {
         for (Node node : nodes) {
@@ -29,11 +30,11 @@ public class Main {
         return null;
     }
 
-    public void indexAssignment() {
-        System.out.println("-------------Start Procedure1---------------");
+    public boolean isReachable(Node source, Node target) {
+        return source.isReachable(target);
+    }
 
-        long start = System.currentTimeMillis();
-
+    public Set<Node> indexAssignment(Set<Node> graph) {
         // procedure1 (Chain Reduction (1))
         int k = 0;
         Node currentNode;
@@ -63,20 +64,14 @@ public class Main {
 
         // procedure1 End
 
-        long end = System.currentTimeMillis();
-        System.out.println("procedure1 Time :" + ((end - start) / 1000.) + "s");
 
         chainNum = k;
 
+        return graph;
+
     }
 
-    public void chainReduction() {
-        System.out.println("-------------Start Chain Reduction---------------");
-
-        // Chain Reduction
-        long start = System.currentTimeMillis();
-
-
+    public Set<Node> chainReduction(Set<Node> graph) {
         // setSuccessors & chain sorting
         for (Node node : graph) {
             node.setSuccessors(node.getAllSuccessors());
@@ -211,12 +206,11 @@ public class Main {
 
 
         //(6)
-        for (
-                Node node : offNodes) {
-            Set<Node> deleteNode = new HashSet<>();
+        for (Node node : offNodes) {
             if (node.getOffChainSuccessors().size() == 0) {
                 continue;
             }
+            Set<Node> deleteNode = new HashSet<>();
             for (Node n : node.getOffChainSuccessors()) {
                 Set<Node> temp = new HashSet<>(n.getChainPredecessors());
                 temp.retainAll(node.getSuccessors());
@@ -227,22 +221,30 @@ public class Main {
             node.removeOffChainSuccessors(deleteNode);
         }
 
-        long end = System.currentTimeMillis();
-
-        System.out.println("Chain Reduction Time :" + ((end - start) / 1000.) + "s");
+        return graph;
     }
 
-
     public static void main(String[] args) {
-        Test test = new Test();
-        Main main = new Main();
-        EdgeCreator.create(size, probability, attenuation);
+        Set<Node> graph = new HashSet<>();
+        GraphLoader graphLoader = new GraphLoader();
+        GraphCreator creator = new GraphCreator();
         String fileName = "res/test.csv";
+        int nodes = 5000;
+        double degree = 5;
+        int maxDistance = 100;
+        boolean loop = false;
+        int testSeconds = 10;
+
+        Timer.start("create new graph");
+        EdgeCreator.createNDD(nodes, degree, maxDistance, loop);
+        Timer.stop("create new graph");
         try {
-            test.loadGraph(fileName, graph);
+            graph = graphLoader.loadGraph2(fileName);
         } catch (IOException e) {
             e.printStackTrace();
         }
+
+        System.out.println(graph.size());
 
 
         //fig1 graph
@@ -279,16 +281,38 @@ public class Main {
 //        graph.add(G);
 //        graph.add(H);
 
-        main.indexAssignment();
-        main.chainReduction();
+        Timer.start("index Assignment");
+        graph = creator.indexAssignment(graph);
+        Timer.stop("index Assignment");
+
+        Timer.start("chain Reduction");
+        graph = creator.chainReduction(graph);
+        Timer.stop("chain Reduction");
+
+        ReachabilityTester<Node> tester = new ReachabilityTester<>(graph);
+
+        tester.put("my Graph", creator::isReachable);
+
+        System.out.println(testSeconds + " seconds test");
+        System.out.println("my Graph: " + tester.testPerformance("my Graph", testSeconds) + " times");
+
+        Timer.start("test reachability");
+        for (Node node : graph) {
+            Set<Node> unreachableNodes = new HashSet<>(graph);
+            unreachableNodes.removeAll(node.getAllSuccessors());
+            for (Node destination : node.getAllSuccessors()) {
+                if (!node.isReachable(destination)) {
+                    System.err.println("Error1:" + node.getEvent() + "→" + destination.getEvent());
+                }
+            }
+            for (Node destination : unreachableNodes) {
+                if (node.isReachable(destination)) {
+                    System.err.println("Error2:" + node.getEvent() + "→" + destination.getEvent());
+                }
+            }
+        }
+        Timer.stop("test reachability");
 
 
-        System.out.println("-------------Test---------------");
-
-
-        test.performanceTest(graph);
-        test.reachableTest(graph);
-
-//        dispAll(graph);
     }
 }
