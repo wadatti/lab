@@ -5,6 +5,9 @@ import javassist.CtMethod;
 import javassist.expr.ExprEditor;
 import javassist.expr.MethodCall;
 
+/**
+ * Fork Join への計装コード挿入
+ */
 public class LogExprEditor extends ExprEditor {
 
     private ClassPool cpool;
@@ -16,6 +19,7 @@ public class LogExprEditor extends ExprEditor {
         this.cpool = cpool;
     }
 
+    // parent fork join instrument
     @Override
     public void edit(MethodCall m) throws CannotCompileException {
         String methodName = m.getMethodName();
@@ -30,6 +34,7 @@ public class LogExprEditor extends ExprEditor {
                     (LogCode.out("FORK_PA", "\"+$0.hashCode()+\"", className, line) +
                             "$_ = $proceed();"
                     );
+            System.out.println("\t[OK]Trace: start() at " + className);
             return;
         }
 
@@ -46,18 +51,18 @@ public class LogExprEditor extends ExprEditor {
 
 
         // RPC
-        if (methodName.startsWith("Rpc_")) {
-            String hash_send = "\"+$1.generateTraceLogUid()+\"";
-            String hash_recv = "\"+$_.getTraceLogUid()+\"";
-            m.replace
-                    (
-                            LogCode.out("SEND_RPC", hash_send, className, line) +
-                                    "$_ = $proceed($$);" +
-                                    LogCode.out("RECV_RPC", hash_recv, className, line)
-                    );
-            System.out.printf("\t[OK]Trace: %s at %s%n", methodName, className);
-            return;
-        }
+//        if (methodName.startsWith("Rpc_")) {
+//            String hash_send = "\"+$1.generateTraceLogUid()+\"";
+//            String hash_recv = "\"+$_.getTraceLogUid()+\"";
+//            m.replace
+//                    (
+//                            LogCode.out("SEND_RPC", hash_send, className, line) +
+//                                    "$_ = $proceed($$);" +
+//                                    LogCode.out("RECV_RPC", hash_recv, className, line)
+//                    );
+//            System.out.printf("\t[OK]Trace: %s at %s%n", methodName, className);
+//            return;
+//        }
 
         // Socket
         try {
@@ -90,7 +95,7 @@ public class LogExprEditor extends ExprEditor {
 
             // EventHandler
             if (longName.contains("Executor.execute")) {
-                String hash = "\"+$0.hashCode()+\"";
+                String hash = "\"+$1.hashCode()+\"";
 				/*
 				m.replace(
 						"((benchmark.thread.EventHandler)$1).setEventhandlerid($0.hashCode());" +
@@ -98,6 +103,11 @@ public class LogExprEditor extends ExprEditor {
                             PocketLog.out("CREATE_EV",hash,className, line)
 				);
 				*/
+
+                m.replace
+                        (LogCode.out("FORK_PA", "\"+$1.hashCode()+\"", className, line) +
+                                "$_ = $proceed($$);"
+                        );
 
                 System.out.println(String.format("\t[OK]Trace: ExecutorService at %s", className));
             }

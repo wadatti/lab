@@ -3,13 +3,41 @@ import javassist.CtClass;
 import javassist.CtMethod;
 import javassist.Modifier;
 
-public class LogInstrument {
+/**
+ * 各クラスのメソッドへの計装コード挿入
+ */
+public class MethodInstrument {
+    CtClass c;
+
+    public MethodInstrument(CtClass c) {
+        this.c = c;
+    }
+
+    public CtClass getC() {
+        return c;
+    }
+
+    public void instrumnet() {
+        try {
+            for (CtMethod m : c.getDeclaredMethods()) {
+                ThreadRunInst(c, m);
+                SynMethodInst(c, m);
+            }
+        } catch (CannotCompileException e) {
+            e.printStackTrace();
+        }
+    }
 
     // fork @ 子スレッド
     public static void ThreadRunInst(CtClass c, CtMethod m) throws CannotCompileException {
         if (m.getName().equals("run") && m.getSignature().equals("()V")) {
             int line = m.getMethodInfo().getLineNumber(0);
+
+            //上だとThread thread = new Thread(new Task()); thread.start();との整合性が取れる
+            //下だとExecutorServiceのexecuteとのHashで整合性が取れる
             String hash = "\"+Thread.currentThread().hashCode()+\"";
+//            String hash = "\"+this.hashCode()+\"";
+
             m.insertBefore(LogCode.out("FORK_CH", hash, c.getName(), line));
             m.insertAfter(LogCode.out("JOIN_CH", hash, c.getName(), line));
             System.out.println(String.format("\t[OK]Trace: run() at %s%n", c.getName()));
@@ -20,7 +48,7 @@ public class LogInstrument {
     public static void SynMethodInst(CtClass c, CtMethod m) throws CannotCompileException {
         int line = m.getMethodInfo().getLineNumber(0);
         if (Modifier.isSynchronized(m.getModifiers())) {
-            if (Modifier.isStatic(m.getModifiers())) return; //TODO staticだったらタグどうする?
+            if (Modifier.isStatic(m.getModifiers())) return;
             String hash = "\"+this.hashCode()+\"";
             m.insertBefore(LogCode.out("LOCK", hash, c.getName(), line));
             m.insertAfter(LogCode.out("REL", hash, c.getName(), line));
@@ -28,20 +56,4 @@ public class LogInstrument {
         }
     }
 
-    // RPC
-    public static void RpcMethodInst(CtClass c, CtMethod m) throws CannotCompileException {
-        int line = m.getMethodInfo().getLineNumber(0);
-        if (!c.getName().equals("benchmark.rpc.Rpc")) return;
-        if (m.getName().startsWith("Rpc_")) {
-            String hash_send = "\"+$_.generateTraceLogUid()+\"";
-            String hash_recv = "\"+$1.getTraceLogUid()+\"";
-            m.insertBefore(
-                    LogCode.out("BEGIN_RPC", hash_recv, c.getName(), line)
-            );
-
-            m.insertAfter(
-                    LogCode.out("END_RPC", hash_send, c.getName(), line));
-            System.out.println(String.format("\t[OK]Trace: Rpc method %s@%s%n", m.getName(), c.getName()));
-        }
-    }
 }
