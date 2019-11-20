@@ -1,9 +1,5 @@
-import javassist.CannotCompileException;
-import javassist.ClassPool;
-import javassist.CtClass;
-import javassist.CtMethod;
-import javassist.expr.ExprEditor;
-import javassist.expr.MethodCall;
+import javassist.*;
+import javassist.expr.*;
 
 /**
  * Fork Join への計装コード挿入
@@ -12,6 +8,9 @@ public class LogExprEditor extends ExprEditor {
 
     private ClassPool cpool;
     private CtClass currentCtClass;
+    private CtMethod currentMethod;
+    private String longName;
+    private static int uid = 1;
 
 
     public LogExprEditor(CtClass c, ClassPool cpool) {
@@ -19,30 +18,82 @@ public class LogExprEditor extends ExprEditor {
         this.cpool = cpool;
     }
 
-    // parent fork join instrument
+    // read write instrument
+    @Override
+    public void edit(FieldAccess f) {
+        try {
+            String className = f.getClassName();
+            String fieldName = f.getFieldName();
+            CtClass type = f.getField().getType();
+            int line = f.getLineNumber();
+
+            try {
+                if (type.isPrimitive()) {
+                    String access = f.isStatic() ? className + "." + fieldName : "\"+$0.hashCode()+\"" + fieldName;
+                    String hash = "\"+(\"" + access + "\").hashCode()+\"";
+                    if (f.isWriter()) {
+                        f.replace(LogCode.out("WRITE", hash, className + "." + fieldName, line) +
+                                "$proceed($$);"
+                        );
+                    }
+
+                    if (f.isReader()) {
+                        f.replace(LogCode.out("READ", hash, className + "." + fieldName, line) +
+                                "$_ = $proceed();"
+                        );
+                    }
+                } else {
+                    String access = f.isStatic() ? className + "." + fieldName : "$0." + fieldName;
+                    String hash = "\"+java.util.Objects.hashCode(" + access + ")+\"";
+                    if (f.isWriter()) {
+                        f.replace(
+                                LogCode.out("WRITE", hash, className + "." + fieldName, line) +
+                                        "$proceed($$);"
+                        );
+                    }
+                    if (f.isReader()) {
+                        f.replace(
+                                LogCode.out("READ", hash, className + "." + fieldName, line) +
+                                        "$_ = $proceed();"
+                        );
+                    }
+                }
+            } catch (CannotCompileException e) {
+                e.printStackTrace();
+            }
+
+        } catch (NotFoundException e) {
+            e.printStackTrace();
+        }
+    }
+
+    // parent fork join and Socket, Executor Service instrument
     @Override
     public void edit(MethodCall m) throws CannotCompileException {
         String methodName = m.getMethodName();
         String className = currentCtClass.getName();
         int line = m.getLineNumber();
 
-        // fork @ 親スレッド
+        // fork at parent
         if (methodName.equals("start")) {
             //メソッドシグネチャを表す(詳しくはJavaByteCode参照)　()VはVoid型
             if (!m.getSignature().equals("()V")) return;
+            String hash_tmp = "\"+((wrapper.WrapperThread)$0).getTask().hashCode()+\"";
             m.replace
-                    (LogCode.out("FORK_PA", "\"+$0.hashCode()+\"", className, line) +
+                    (LogCode.out("FORK_PA", hash_tmp, className, line) +
                             "$_ = $proceed();"
                     );
             System.out.println("\t[OK]Trace: start() at " + className);
             return;
+
         }
 
-        // join @ 親スレッド
+        // join at parent
         if (methodName.equals("join")) {
             if (!m.getSignature().equals("()V")) return;
+            String hash_tmp = "\"+((wrapper.WrapperThread)$0).getTask().hashCode()+\"";
             m.replace
-                    (LogCode.out("JOIN_PA", "\"+$0.hashCode()+\"", className, line) +
+                    (LogCode.out("JOIN_PA", hash_tmp, className, line) +
                             "$_ = $proceed();"
                     );
             System.out.println("\t[OK]Trace: join() at " + className);
@@ -67,35 +118,45 @@ public class LogExprEditor extends ExprEditor {
         // Socket
         try {
             CtMethod mm = m.getMethod();
-            String longName = mm.getLongName();
+            longName = mm.getLongName();
+            currentMethod = m.getMethod();
 
 
             // socket send
             if (longName.contains("Stream.write")) {
-                String hash_tmp = "\"+$1.hashCode()+\"";
-                ;
-                m.replace(
-                        LogCode.out("SEND_SO", hash_tmp, className, line) +
-                                "$proceed($$);"
-                );
+                String hash_tmp = "\"+$1.TraceObjectID+\"";
+                if (longName.contains("Object")) {
+                    m.replace(
+                            "$1.TraceObjectID = " + uid + ";" +
+                                    LogCode.out("SEND_SO", hash_tmp, className, line) +
+                                    "$proceed($$);"
+                    );
+                } else {
+                    return;
+                }
+                uid++;
                 System.out.printf("\t[OK]Trace: Socket %s at %s", methodName, className);
 
             }
 
             // socket recv
             if (longName.contains("Stream.read")) {
-                String hash_tmp = "\"+$1.hashCode()+\"";
-                m.replace(
-                        "$_ = $proceed($$);" +
-                                LogCode.out("RECV_SO", hash_tmp, className, line)
-                );
+                String hash_tmp = "\"+$_.TraceObjectID+\"";
+                if (longName.contains("Object")) {
+                    m.replace(
+                            "$_ = $proceed($$);" +
+                                    LogCode.out("RECV_SO", hash_tmp, className, line)
+
+                    );
+                } else {
+                    return;
+                }
                 System.out.println(String.format("\t[OK]Trace: Socket %s at %s", methodName, className));
             }
-
-
-            // EventHandler
+            // ExecutorService
             if (longName.contains("Executor.execute")) {
-                String hash = "\"+$1.hashCode()+\"";
+                if (m.getSignature().equals("()V"))
+                    return;
 				/*
 				m.replace(
 						"((benchmark.thread.EventHandler)$1).setEventhandlerid($0.hashCode());" +
@@ -113,6 +174,9 @@ public class LogExprEditor extends ExprEditor {
             }
         } catch (Exception e) {
             e.printStackTrace();
+            System.out.println("[ERROR]" + currentCtClass.getName() + ":" + currentMethod.getName());
+            System.out.println(longName);
+            System.exit(1);
         }
 
 

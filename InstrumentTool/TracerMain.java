@@ -1,8 +1,4 @@
-import javassist.CannotCompileException;
-import javassist.ClassPool;
-import javassist.CtClass;
-import javassist.NotFoundException;
-import javassist.expr.MethodCall;
+import javassist.*;
 
 import java.io.File;
 import java.io.IOException;
@@ -13,7 +9,7 @@ import java.util.jar.JarFile;
 public class TracerMain {
 
     public static void main(String[] args) {
-        String targetFileName = "input/" + args[0];
+        String targetFileName = args[0];
         String inputPath = "input/";
         String outputPath = "output/";
         File inputDir = new File(inputPath);
@@ -27,6 +23,13 @@ public class TracerMain {
 
 
         ClassPool classPool = ClassPool.getDefault();
+        classPool.importPackage("wrapper");
+        try {
+            classPool.get("wrapper.WrapperThread").writeFile(outputPath);
+        } catch (CannotCompileException | IOException | NotFoundException e) {
+            e.printStackTrace();
+        }
+
 
         // classPool add
         RelationFileReader filePaths = new RelationFileReader(inputDir);
@@ -54,15 +57,19 @@ public class TracerMain {
 
         try {
             for (CtClass instrumentClass : targetClass) {
+                instrumentClass.instrument(new PreInstrument(instrumentClass, classPool));
+            }
+            for (CtClass instrumentClass : targetClass) {
                 if (instrumentClass.isInterface()) {
                     instrumentClass.writeFile(outputPath);
                     continue;
                 }
-
                 instrumentClass.instrument(new LogExprEditor(instrumentClass, classPool));
                 MethodInstrument methodInstrument = new MethodInstrument(instrumentClass);
                 methodInstrument.instrumnet();
-                methodInstrument.getC().writeFile(outputPath);
+                SynBlockInstrument synBlockInstrument = new SynBlockInstrument(methodInstrument.getC());
+                synBlockInstrument.instrument();
+                synBlockInstrument.getC().writeFile(outputPath);
             }
         } catch (CannotCompileException | IOException e) {
             e.printStackTrace();

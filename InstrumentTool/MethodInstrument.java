@@ -35,7 +35,7 @@ public class MethodInstrument {
 
             //上だとThread thread = new Thread(new Task()); thread.start();との整合性が取れる
             //下だとExecutorServiceのexecuteとのHashで整合性が取れる
-            String hash = "\"+Thread.currentThread().hashCode()+\"";
+            String hash = "\"+this.hashCode()+\"";
 //            String hash = "\"+this.hashCode()+\"";
 
             m.insertBefore(LogCode.out("FORK_CH", hash, c.getName(), line));
