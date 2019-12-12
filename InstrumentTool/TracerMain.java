@@ -15,6 +15,7 @@ public class TracerMain {
         File inputDir = new File(inputPath);
         JarFile targetFile = null;
         Set<CtClass> targetClass = new HashSet<>();
+
         try {
             targetFile = new JarFile(new File(targetFileName));
         } catch (IOException e) {
@@ -26,6 +27,7 @@ public class TracerMain {
         classPool.importPackage("wrapper");
         try {
             classPool.get("wrapper.WrapperThread").writeFile(outputPath);
+            classPool.get("wrapper.TraceID").writeFile(outputPath);
         } catch (CannotCompileException | IOException | NotFoundException e) {
             e.printStackTrace();
         }
@@ -41,12 +43,20 @@ public class TracerMain {
             }
         }
 
+        try {
+            classPool.appendClassPath(targetFileName);
+        } catch (NotFoundException e) {
+            e.printStackTrace();
+        }
+
+
         // targetClass add
         try {
             for (Enumeration<JarEntry> e = targetFile.entries(); e.hasMoreElements(); ) {
                 JarEntry entry = e.nextElement();
                 if (entry.getName().endsWith(".class")) {
                     targetClass.add(classPool.get(entry.getName().replace(".class", "").replace("/", ".")));
+                } else if (!entry.isDirectory()) {
                     System.out.println(entry.getName());
                 }
             }
@@ -56,7 +66,11 @@ public class TracerMain {
 
 
         try {
+            CtClass wrapperThread = classPool.get("wrapper.WrapperThread");
             for (CtClass instrumentClass : targetClass) {
+                if (instrumentClass.getSuperclass().getName().equals("java.lang.Thread")) {
+                    instrumentClass.setSuperclass(wrapperThread);
+                }
                 instrumentClass.instrument(new PreInstrument(instrumentClass, classPool));
             }
             for (CtClass instrumentClass : targetClass) {
@@ -71,7 +85,7 @@ public class TracerMain {
                 synBlockInstrument.instrument();
                 synBlockInstrument.getC().writeFile(outputPath);
             }
-        } catch (CannotCompileException | IOException e) {
+        } catch (CannotCompileException | IOException | NotFoundException e) {
             e.printStackTrace();
         }
 

@@ -1,7 +1,4 @@
-import javassist.CtClass;
-import javassist.CtMethod;
-import javassist.Modifier;
-import javassist.NotFoundException;
+import javassist.*;
 import javassist.bytecode.*;
 
 import java.util.List;
@@ -31,7 +28,10 @@ public class SynBlockInstrument {
     }
 
     private void SynBlockLookup(MethodInfo minfo) {
-        CodeIterator iterator = minfo.getCodeAttribute().iterator();
+        CodeAttribute ca = minfo.getCodeAttribute();
+        ca.setMaxStack(ca.getMaxStack() + 4);
+        CodeIterator iterator = ca.iterator();
+
         try {
             for (iterator.begin(); iterator.hasNext(); iterator.next()) {
                 if (iterator.byteAt(iterator.lookAhead()) == Opcode.MONITORENTER) {
@@ -53,15 +53,27 @@ public class SynBlockInstrument {
         instrumentCode.addGetstatic("java.lang.System", "out", "Ljava/io/PrintStream;"); // out フィールド呼び出し
         instrumentCode.addNew("java.lang.StringBuilder"); // StringBuilder使うよ
         instrumentCode.add(Opcode.DUP); // 複製, リアルコードがやってたから1回やっとくといいっぽい
-        instrumentCode.addLdc("[TraceLog] " + op + ", 888, "); // Stringのロード
-        instrumentCode.addInvokespecial("java.lang.StringBuilder", "<init>", "(Ljava/lang/String;)V"); // sb = new StringBuilder("[hoge]")
-        instrumentCode.addInvokestatic("java.lang.Thread", "currentThread", "()Ljava/lang/Thread;"); // t = Thread.currentThread();
-        instrumentCode.addInvokevirtual("java.lang.Thread", "getId", "()J"); // tid = t.getId();
-        instrumentCode.addInvokevirtual("java.lang.StringBuilder", "append", "(J)Ljava/lang/StringBuilder;"); // sb.append(tid);
-        instrumentCode.addLdc(", 0" + LogCode.LogOutTail(c.getName(), 0)); // str = "fugafuga" (出力用情報)
-        instrumentCode.addInvokevirtual("java.lang.StringBuilder", "append", "(Ljava/lang/String;)Ljava/lang/StringBuilder;"); // sb.append(str);
-        instrumentCode.addInvokevirtual("java.lang.StringBuilder", "toString", "()Ljava/lang/String;"); // output = sb.toString();
-        instrumentCode.addInvokevirtual("java/io/PrintStream", "println", "(Ljava/lang/String;)V"); // System.out.println(output);
+        instrumentCode.addInvokespecial("java.lang.StringBuilder", "<init>", "()V");
+        instrumentCode.addLdc("[TraceLog] LOCK, hashcode, ");
+        instrumentCode.addInvokevirtual("java.lang.StringBuilder", "append", "(Ljava/lang/String;)Ljava/lang/StringBuilder;");
+        instrumentCode.addInvokestatic("java.lang.Thread", "currentThread", "()Ljava/lang/Thread;");
+        instrumentCode.addInvokevirtual("java.lang.Thread", "getStackTrace", "()[Ljava/lang/StackTraceElement;");
+        instrumentCode.add(Opcode.ICONST_1);
+        instrumentCode.add(Opcode.AALOAD);
+        instrumentCode.addInvokevirtual("java.lang.StackTraceElement", "getClassName", "()Ljava/lang/String;");
+        instrumentCode.addInvokevirtual("java.lang.StringBuilder", "append", "(Ljava/lang/String;)Ljava/lang/StringBuilder;");
+        instrumentCode.addLdc(", ");
+        instrumentCode.addInvokevirtual("java.lang.StringBuilder", "append", "(Ljava/lang/String;)Ljava/lang/StringBuilder;");
+        instrumentCode.addInvokestatic("java.lang.Thread", "currentThread", "()Ljava/lang/Thread;");
+        instrumentCode.addInvokevirtual("java.lang.Thread", "getStackTrace", "()[Ljava/lang/StackTraceElement;");
+        instrumentCode.add(Opcode.ICONST_1);
+        instrumentCode.add(Opcode.AALOAD);
+        instrumentCode.addInvokevirtual("java.lang.StackTraceElement", "getLineNumber", "()I");
+        instrumentCode.addInvokevirtual("java.lang.StringBuilder", "append", "(I)Ljava/lang/StringBuilder;");
+        instrumentCode.addInvokevirtual("java.lang.StringBuilder", "toString", "()Ljava/lang/String;");
+        instrumentCode.addInvokevirtual("java.io.PrintStream", "println", "(Ljava/lang/String;)V");
+
+        System.out.println("[OK]Trace: Synchronized Block " + minfo.getName());
 
         return instrumentCode.get();
     }

@@ -111,7 +111,8 @@ public class PreInstrument extends ExprEditor {
 
         } catch (Exception e) {
             e.printStackTrace();
-            System.out.println("[ERROR]" + currentCtClass.getName() + ":" + currentMethod.getName());
+            System.out.println("[ERROR]" + currentCtClass.getName() + ":" + line);
+            System.out.println(methodName);
             System.out.println(longName);
             System.exit(1);
         }

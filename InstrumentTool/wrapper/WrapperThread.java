@@ -1,38 +1,51 @@
 package wrapper;
 
 public class WrapperThread extends Thread {
-    private Runnable task;
+    private static int wrapperThreadID = 0;
+
+    public WrapperThread() {
+        super();
+        wrapperThreadID = TraceID.getID();
+    }
 
     public WrapperThread(Runnable task) {
         super(task);
-        this.task = task;
+        wrapperThreadID = TraceID.getID();
     }
 
     public WrapperThread(Runnable task, String name) {
         super(task, name);
-        this.task = task;
+        wrapperThreadID = TraceID.getID();
+    }
+
+    public WrapperThread(String name) {
+        super(name);
+        wrapperThreadID = TraceID.getID();
+
     }
 
     public WrapperThread(ThreadGroup group, Runnable task) {
         super(group, task);
-        this.task = task;
+        wrapperThreadID = TraceID.getID();
     }
 
     public WrapperThread(ThreadGroup group, Runnable task, String name) {
         super(group, task, name);
-        this.task = task;
+        wrapperThreadID = TraceID.getID();
     }
 
     public WrapperThread(ThreadGroup group, Runnable task, String name, long stackSize) {
         super(group, task, name, stackSize);
-        this.task = task;
+        wrapperThreadID = TraceID.getID();
     }
 
     public WrapperThread(ThreadGroup group, String name) {
         super(group, name);
+        wrapperThreadID = TraceID.getID();
+
     }
 
-    public Runnable getTask() {
-        return task;
+    public int getID() {
+        return wrapperThreadID;
     }
 }
