@@ -1,9 +1,9 @@
+package instrument;
+
 import javassist.*;
 import javassist.expr.ExprEditor;
 import javassist.expr.MethodCall;
 import javassist.expr.NewExpr;
-
-import java.io.IOException;
 
 public class PreInstrument extends ExprEditor {
     private CtClass currentCtClass;
@@ -17,6 +17,11 @@ public class PreInstrument extends ExprEditor {
         this.cpool = cpool;
     }
 
+    /**
+     * replacing "new Thread" -> "new ThreadWrapper"
+     *
+     * @param n new operator object
+     */
     @Override
     public void edit(NewExpr n) {
         try {
@@ -25,7 +30,7 @@ public class PreInstrument extends ExprEditor {
             longName = n.getFileName();
             CtClass clazz = cpool.get(n.getClassName());
             if (clazz.getName().equals("java.lang.Thread")) {
-                n.replace("$_ = new WrapperThread($$);");
+                n.replace("$_ = new ThreadWrapper($$);");
                 System.out.println(String.format("\t[OK]preInstrument: java.lang.Thread at %s", className));
             }
 
@@ -38,27 +43,10 @@ public class PreInstrument extends ExprEditor {
     }
 
     @Override
-    public void edit(MethodCall m) throws CannotCompileException {
+    public void edit(MethodCall m) {
         String methodName = m.getMethodName();
         String className = currentCtClass.getName();
         int line = m.getLineNumber();
-
-        // fork at parent
-        if (methodName.equals("start")) {
-            //メソッドシグネチャを表す(詳しくはJavaByteCode参照)　()VはVoid型
-            if (!m.getSignature().equals("()V")) return;
-
-            System.out.println("\t[OK]Trace: start() at " + className);
-            return;
-        }
-
-        // join at parent
-        if (methodName.equals("join")) {
-            if (!m.getSignature().equals("()V")) return;
-
-            System.out.println("\t[OK]Trace: join() at " + className);
-            return;
-        }
 
 
         // Socket
@@ -70,7 +58,6 @@ public class PreInstrument extends ExprEditor {
 
             // socket send
             if (longName.contains("Stream.write")) {
-                System.out.println(mm.getLongName());
                 CtClass[] insertClasses = mm.getParameterTypes();
                 if (longName.contains("Object")) {
                     for (CtClass insertClass : mm.getParameterTypes()) {
@@ -84,14 +71,12 @@ public class PreInstrument extends ExprEditor {
                             insertClass.addField(f);
                         }
                     }
+                    System.out.printf("\t[OK]Trace: Socket %s at %s", methodName, className);
                 }
-                System.out.printf("\t[OK]Trace: Socket %s at %s", methodName, className);
-
             }
 
             // socket recv
             if (longName.contains("Stream.read")) {
-                System.out.println(mm.getLongName());
                 CtClass insertClass = mm.getReturnType();
                 if (longName.contains("Object")) {
                     for (CtField field : insertClass.getFields()) {
@@ -104,9 +89,8 @@ public class PreInstrument extends ExprEditor {
                         insertClass.addField(f);
                         insertClass.writeFile("output/");
                     }
-
+                    System.out.println(String.format("\t[OK]preInstrument: Socket %s at %s", methodName, className));
                 }
-                System.out.println(String.format("\t[OK]preInstrument: Socket %s at %s", methodName, className));
             }
 
         } catch (Exception e) {

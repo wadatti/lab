@@ -1,4 +1,7 @@
+import instrument.*;
 import javassist.*;
+import javassist.expr.ExprEditor;
+import javassist.expr.MethodCall;
 
 import java.io.File;
 import java.io.IOException;
@@ -9,24 +12,18 @@ import java.util.jar.JarFile;
 public class TracerMain {
 
     public static void main(String[] args) {
-        String targetFileName = args[0];
         String inputPath = "input/";
         String outputPath = "output/";
+        String targetFileName = inputPath + args[0];
         File inputDir = new File(inputPath);
-        JarFile targetFile = null;
+        JarFile targetFile;
         Set<CtClass> targetClass = new HashSet<>();
 
-        try {
-            targetFile = new JarFile(new File(targetFileName));
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
-
         ClassPool classPool = ClassPool.getDefault();
+
         classPool.importPackage("wrapper");
         try {
-            classPool.get("wrapper.WrapperThread").writeFile(outputPath);
+            classPool.get("wrapper.ThreadWrapper").writeFile(outputPath);
             classPool.get("wrapper.TraceID").writeFile(outputPath);
         } catch (CannotCompileException | IOException | NotFoundException e) {
             e.printStackTrace();
@@ -43,6 +40,7 @@ public class TracerMain {
             }
         }
 
+        // I want to append target jar file to the end.
         try {
             classPool.appendClassPath(targetFileName);
         } catch (NotFoundException e) {
@@ -52,21 +50,28 @@ public class TracerMain {
 
         // targetClass add
         try {
-            for (Enumeration<JarEntry> e = targetFile.entries(); e.hasMoreElements(); ) {
-                JarEntry entry = e.nextElement();
-                if (entry.getName().endsWith(".class")) {
-                    targetClass.add(classPool.get(entry.getName().replace(".class", "").replace("/", ".")));
-                } else if (!entry.isDirectory()) {
-                    System.out.println(entry.getName());
+            if (targetFileName.endsWith(".jar")) {
+                targetFile = new JarFile(new File(targetFileName));
+                for (Enumeration<JarEntry> e = targetFile.entries(); e.hasMoreElements(); ) {
+                    JarEntry entry = e.nextElement();
+                    if (entry.getName().endsWith(".class")) {
+                        targetClass.add(classPool.get(entry.getName().replace(".class", "").replace("/", ".")));
+                    }
                 }
+
+            } else if (targetFileName.endsWith(".class")) {
+                targetClass.add(classPool.get(args[0].replace(".class", "")));
+            } else {
+                throw new IllegalArgumentException();
             }
-        } catch (NotFoundException e) {
+        } catch (NotFoundException | IOException e) {
             e.printStackTrace();
+            System.exit(1);
         }
 
 
         try {
-            CtClass wrapperThread = classPool.get("wrapper.WrapperThread");
+            CtClass wrapperThread = classPool.get("wrapper.ThreadWrapper");
             for (CtClass instrumentClass : targetClass) {
                 if (instrumentClass.getSuperclass().getName().equals("java.lang.Thread")) {
                     instrumentClass.setSuperclass(wrapperThread);
@@ -74,21 +79,60 @@ public class TracerMain {
                 instrumentClass.instrument(new PreInstrument(instrumentClass, classPool));
             }
             for (CtClass instrumentClass : targetClass) {
-                if (instrumentClass.isInterface()) {
-                    instrumentClass.writeFile(outputPath);
-                    continue;
-                }
-                instrumentClass.instrument(new LogExprEditor(instrumentClass, classPool));
+                SynBlockInstrument synBlockInstrument = new SynBlockInstrument(instrumentClass);
+                synBlockInstrument.instrument();
+                synBlockInstrument.getC().instrument(new LogExprEditor(instrumentClass, classPool));
                 MethodInstrument methodInstrument = new MethodInstrument(instrumentClass);
                 methodInstrument.instrumnet();
-                SynBlockInstrument synBlockInstrument = new SynBlockInstrument(methodInstrument.getC());
-                synBlockInstrument.instrument();
-                synBlockInstrument.getC().writeFile(outputPath);
             }
-        } catch (CannotCompileException | IOException | NotFoundException e) {
+        } catch (CannotCompileException | NotFoundException e) {
             e.printStackTrace();
         }
 
+        RPCInstrument rpcClassReader = new RPCInstrument(targetClass, classPool);
+        try {
+            rpcClassReader.instrument();
+        } catch (NotFoundException | CannotCompileException e) {
+            e.printStackTrace();
+        }
+
+        // only method call instrument
+//        try {
+//            for (CtClass instrumentClass : targetClass) {
+//                instrumentClass.instrument(new NaiveInstrument(classPool, instrumentClass));
+//            }
+//        } catch (CannotCompileException e) {
+//            e.printStackTrace();
+//        }
+
+        for (CtClass instrumentClass : targetClass) {
+            try {
+                instrumentClass.writeFile(outputPath);
+            } catch (CannotCompileException | IOException e) {
+                e.printStackTrace();
+            }
+        }
+        try {
+            CtClass server = classPool.get("org.apache.hadoop.ipc.Server$Handler");
+            server.instrument(new ExprEditor() {
+                @Override
+                public void edit(MethodCall m) {
+                    try {
+                        if (m.getMethod().getName().contains("take")) {
+                            m.replace("$_ = $proceed();" +
+                                    "System.out.println(\"TRACEEEEEEEE \"+ $_.toString());");
+                            System.out.println("deketa");
+                        }
+                    } catch (NotFoundException | CannotCompileException e) {
+                        e.printStackTrace();
+                    }
+                }
+            });
+            server.writeFile(outputPath);
+        } catch (NotFoundException | CannotCompileException | IOException e) {
+            e.printStackTrace();
+            System.exit(1);
+        }
 
     }
 }

@@ -12,7 +12,6 @@ public class RelationFileReader {
     public RelationFileReader(File inputDir) {
         files = inputDir.listFiles();
         paths = new LinkedList<>();
-//        paths.add("input/hadoop-0.23.3/share/hadoop/mapreduce/hadoop-mapreduce-0.23.3.jar");
     }
 
     public List<String> getPaths() {
