@@ -24,12 +24,13 @@ public class SynBlockInstrument {
             }
         } catch (NotFoundException e) {
             e.printStackTrace();
+            System.exit(1);
         }
     }
 
     private void SynBlockLookup(MethodInfo minfo) {
         CodeAttribute ca = minfo.getCodeAttribute();
-        ca.setMaxStack(ca.getMaxStack() + 4);  //とりあえず4
+        ca.setMaxStack(ca.getMaxStack() + 1);  //とりあえず1でもいけるっぽい？
         CodeIterator iterator = ca.iterator();
 
         try {
@@ -44,6 +45,7 @@ public class SynBlockInstrument {
             }
         } catch (BadBytecode badBytecode) {
             badBytecode.printStackTrace();
+            System.exit(1);
         }
     }
 

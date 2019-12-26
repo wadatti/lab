@@ -21,12 +21,14 @@ public class TracerMain {
 
         ClassPool classPool = ClassPool.getDefault();
 
+
         classPool.importPackage("wrapper");
         try {
             classPool.get("wrapper.ThreadWrapper").writeFile(outputPath);
             classPool.get("wrapper.TraceID").writeFile(outputPath);
         } catch (CannotCompileException | IOException | NotFoundException e) {
             e.printStackTrace();
+            System.exit(1);
         }
 
 
@@ -37,6 +39,7 @@ public class TracerMain {
                 classPool.appendClassPath(file);
             } catch (NotFoundException e) {
                 e.printStackTrace();
+                System.exit(1);
             }
         }
 
@@ -45,6 +48,7 @@ public class TracerMain {
             classPool.appendClassPath(targetFileName);
         } catch (NotFoundException e) {
             e.printStackTrace();
+            System.exit(1);
         }
 
 
@@ -58,7 +62,6 @@ public class TracerMain {
                         targetClass.add(classPool.get(entry.getName().replace(".class", "").replace("/", ".")));
                     }
                 }
-
             } else if (targetFileName.endsWith(".class")) {
                 targetClass.add(classPool.get(args[0].replace(".class", "")));
             } else {
@@ -81,28 +84,27 @@ public class TracerMain {
             for (CtClass instrumentClass : targetClass) {
                 SynBlockInstrument synBlockInstrument = new SynBlockInstrument(instrumentClass);
                 synBlockInstrument.instrument();
-                synBlockInstrument.getC().instrument(new LogExprEditor(instrumentClass, classPool));
+                instrumentClass.instrument(new LogExprEditor(instrumentClass, classPool));
                 MethodInstrument methodInstrument = new MethodInstrument(instrumentClass);
                 methodInstrument.instrumnet();
             }
         } catch (CannotCompileException | NotFoundException e) {
             e.printStackTrace();
+            System.exit(1);
         }
 
-        RPCInstrument rpcClassReader = new RPCInstrument(targetClass, classPool);
+        RPCInstrument rpcInstrument = new RPCInstrument(targetClass, classPool);
         try {
-            rpcClassReader.instrument();
+            rpcInstrument.instrument();
         } catch (NotFoundException | CannotCompileException e) {
             e.printStackTrace();
+            System.exit(1);
         }
 
         // only method call instrument
-//        try {
-//            for (CtClass instrumentClass : targetClass) {
-//                instrumentClass.instrument(new NaiveInstrument(classPool, instrumentClass));
-//            }
-//        } catch (CannotCompileException e) {
-//            e.printStackTrace();
+//        for (CtClass instrumentClass : targetClass) {
+//            NaiveInstrument naiveInstrument = new NaiveInstrument(instrumentClass, classPool);
+//            naiveInstrument.instrumnet();
 //        }
 
         for (CtClass instrumentClass : targetClass) {
@@ -110,29 +112,36 @@ public class TracerMain {
                 instrumentClass.writeFile(outputPath);
             } catch (CannotCompileException | IOException e) {
                 e.printStackTrace();
+                System.exit(1);
             }
         }
+
+        // tentative instrument for RPC relation class
         try {
             CtClass server = classPool.get("org.apache.hadoop.ipc.Server$Handler");
             server.instrument(new ExprEditor() {
                 @Override
                 public void edit(MethodCall m) {
+                    String getName = "\"+$1.hashCode()+\"";
                     try {
                         if (m.getMethod().getName().contains("take")) {
                             m.replace("$_ = $proceed();" +
-                                    "System.out.println(\"TRACEEEEEEEE \"+ $_.toString());");
+                                    "System.out.println(\"TRACEEEEEEEEYEEEEEEESSSSSSSSSS \"+ $_.toString());" +
+                                    "System.out.println(" + getName + ");");
                             System.out.println("deketa");
                         }
                     } catch (NotFoundException | CannotCompileException e) {
                         e.printStackTrace();
+                        System.exit(1);
                     }
                 }
             });
             server.writeFile(outputPath);
+
+
         } catch (NotFoundException | CannotCompileException | IOException e) {
             e.printStackTrace();
             System.exit(1);
         }
-
     }
 }
