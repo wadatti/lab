@@ -19,7 +19,7 @@ public class MethodInstrument {
         return c;
     }
 
-    public void instrumnet() {
+    public void instrument() {
         try {
             for (CtMethod m : c.getDeclaredMethods()) {
                 ThreadRunInst(c, m);

@@ -25,21 +25,22 @@ public class RPCInstrument {
     public void instrument() throws NotFoundException, CannotCompileException {
         collect();
         addField();
+        jobSubmissionProtocolInstrument();
 
         for (CtClass instrumentClass : targetClass) {
             if (instrumentClass.isInterface()) continue;
             instrumentClass.instrument(new InstrumentJobSubmissionProtocolCaller(instrumentClass));
             instrumentClass.instrument(new InstrumentTaskUmbilicalProtocolCaller(instrumentClass));
-            instrumentClass.instrument(new InstrumentInterTrackerProtocolCaller(instrumentClass));
+//            instrumentClass.instrument(new InstrumentInterTrackerProtocolCaller(instrumentClass));
         }
 
         try {
-            instrumentRPCClassMethod();
+//            instrumentRPCClassMethod();
 
             instrumentJobSubmissionCallee();
             instrumentTaskUmbilicalCallee();
-            instrumentInterTrackerCallee();
-        } catch (CannotCompileException | IOException e) {
+//            instrumentInterTrackerCallee();
+        } catch (CannotCompileException e) {
             e.printStackTrace();
             System.exit(1);
         }
@@ -79,7 +80,7 @@ public class RPCInstrument {
         clazz.addField(iD);
         CtMethod write = clazz.getDeclaredMethod("write");
         CtMethod readFields = clazz.getDeclaredMethod("readFields");
-        write.insertBefore("$1.writeInt(traceID);");
+        write.insertBefore("$1.writeInt(this.traceID);");
         readFields.insertBefore("this.traceID=$1.readInt();");
     }
 
@@ -114,11 +115,17 @@ public class RPCInstrument {
         int argPos = 1;
         for (String s : methodName.substring(methodName.indexOf("(")).split(",")) {
             if (s.contains(className)) {
-                break;
+                return argPos;
             }
             argPos++;
         }
-        return argPos;
+        throw new IllegalArgumentException();
+    }
+
+    private void jobSubmissionProtocolInstrument() throws NotFoundException, CannotCompileException {
+        CtClass instrumentInterface = cp.get("org.apache.hadoop.mapred.JobSubmissionProtocol");
+        CtMethod m = CtNewMethod.make("public org.apache.hadoop.mapred.JobID getNewJobIdWrapper(int TraceID);", instrumentInterface);
+        instrumentInterface.addMethod(m);
     }
 
     private void instrumentJobSubmissionCallee() throws NotFoundException, CannotCompileException {
@@ -159,6 +166,12 @@ public class RPCInstrument {
                             System.out.println("\t[OK]Trace: RPC method " + method.getName() + " at " + instrumentClass.getName());
                         }
                     }
+                    CtMethod m = CtNewMethod.make("public org.apache.hadoop.mapred.JobID getNewJobIdWrapper(int TraceID) throws java.io.IOException {" +
+                            LogCode.omegaOut("RPC_RECV_CH", "\"+TraceID+\"", instrumentClass.getName(), "getNewJobIdWrapper", 0) +
+                            "org.apache.hadoop.mapred.JobID var = getNewJobId(); " +
+                            LogCode.omegaOut("RPC_SEND_CH", "\"+TraceID+\"", instrumentClass.getName(), "getNewJobIdWrapper", 0) +
+                            "return var;}", instrumentClass);
+                    instrumentClass.addMethod(m);
                     break;
                 } else if (interFace.getName().equals("org.apache.hadoop.mapred.JTProtocols") && interFace.getName().equals("org.apache.hadoop.mapred.JobSubmissionProtocol")) {
                     System.exit(1);
@@ -180,9 +193,10 @@ public class RPCInstrument {
                             String hash = "\"+$" + argNum + ".traceID+\"";
                             CtMethod instrumentMethod = instrumentClass.getDeclaredMethod(method.getName());
                             instrumentMethod.insertBefore(LogCode.out("RPC_RECV_CH", hash, instrumentClass.getName(), method.getName(), line));
+                            instrumentMethod.insertBefore(LogCode.omegaOut("RPC_RECV_CH", hash, instrumentClass.getName(), method.getName(), line));
                             instrumentMethod.insertAfter(LogCode.out("RPC_SEND_CH", hash, instrumentClass.getName(), method.getName(), line));
+                            instrumentMethod.insertAfter(LogCode.omegaOut("RPC_SEND_CH", hash, instrumentClass.getName(), method.getName(), line));
                             System.out.println("\t[OK]Trace: RPC method " + method.getName() + " at " + instrumentClass.getName());
-                            break;
                         } else if (method.getLongName().substring(method.getLongName().indexOf("(")).contains("JobID")) {
                             int argNum = countArgumentPosition(method.getLongName(), "JobID");
                             String hash = "\"+$" + argNum + ".traceID+\"";
@@ -276,6 +290,12 @@ public class RPCInstrument {
                             "$_ = $proceed($$);" +
                             LogCode.out("RPC_RECV_PA", "\"+$" + argNum + ".traceID+\"", currentCtClass.getName(), methodLongName, line));
                     System.out.printf("\t[OK]Trace: RPC %s at %s %n", methodName, currentCtClass.getName());
+                } else if (rpcInterfaces.get(i).contains(method) && methodLongName.contains("org.apache.hadoop.mapred.JobSubmissionProtocol.getNewJobId()")) {
+                    m.replace("int tempId = wrapper.TraceID.getID();" +
+                            LogCode.omegaOut("RPC_SEND_PA", "\"+tempId+\"", currentCtClass.getName(), methodLongName, line) +
+                            "$_ = $0.getNewJobIdWrapper(tempId);" +
+                            LogCode.omegaOut("RPC_RECV_PA", "\"+tempId+\"", currentCtClass.getName(), methodLongName, line));
+                    System.out.printf("\t[OK]Trace: RPC %s at %s %n", methodName, currentCtClass.getName());
                 }
             } catch (NotFoundException e) {
                 e.printStackTrace();
@@ -305,15 +325,19 @@ public class RPCInstrument {
                     int argNum = countArgumentPosition(methodLongName, "JvmContext");
                     m.replace("$" + argNum + ".traceID = wrapper.TraceID.getID();" +
                             LogCode.out("RPC_SEND_PA", "\"+$" + argNum + ".traceID+\"", currentCtClass.getName(), methodLongName, line) +
+                            LogCode.omegaOut("RPC_SEND_PA", "\"+$" + argNum + ".traceID+\"", currentCtClass.getName(), methodLongName, line) +
                             "$_ = $proceed($$);" +
-                            LogCode.out("RPC_RECV_PA", "\"+$" + argNum + ".traceID+\"", currentCtClass.getName(), methodLongName, line));
+                            LogCode.out("RPC_RECV_PA", "\"+$" + argNum + ".traceID+\"", currentCtClass.getName(), methodLongName, line) +
+                            LogCode.omegaOut("RPC_RECV_PA", "\"+$" + argNum + ".traceID+\"", currentCtClass.getName(), methodLongName, line));
                     System.out.printf("\t[OK]Trace: RPC %s at %s %n", methodName, currentCtClass.getName());
                 } else if (rpcInterfaces.get(i).contains(method) && methodLongName.substring(methodLongName.indexOf("(")).contains("JobID")) {
                     int argNum = countArgumentPosition(methodLongName, "JobID");
                     m.replace("$" + argNum + ".traceID = wrapper.TraceID.getID();" +
                             LogCode.out("RPC_SEND_PA", "\"+$" + argNum + ".traceID+\"", currentCtClass.getName(), methodLongName, line) +
+                            LogCode.omegaOut("RPC_SEND_PA", "\"+$" + argNum + ".traceID+\"", currentCtClass.getName(), methodLongName, line) +
                             "$_ = $proceed($$);" +
-                            LogCode.out("RPC_RECV_PA", "\"+$" + argNum + ".traceID+\"", currentCtClass.getName(), methodLongName, line));
+                            LogCode.out("RPC_RECV_PA", "\"+$" + argNum + ".traceID+\"", currentCtClass.getName(), methodLongName, line) +
+                            LogCode.omegaOut("RPC_RECV_PA", "\"+$" + argNum + ".traceID+\"", currentCtClass.getName(), methodLongName, line));
                     System.out.printf("\t[OK]Trace: RPC %s at %s %n", methodName, currentCtClass.getName());
                 }
             } catch (NotFoundException e) {

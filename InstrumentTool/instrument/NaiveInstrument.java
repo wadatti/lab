@@ -26,7 +26,7 @@ public class NaiveInstrument extends ExprEditor {
 
     public void instrumnet() {
         instrumentAll();
-        instrumentRPCMethodCall();
+//        instrumentRPCMethodCall();
     }
 
     private void instrumentAll() {

@@ -11,6 +11,7 @@ import java.util.jar.JarFile;
 
 public class TracerMain {
 
+
     public static void main(String[] args) {
         String inputPath = "input/";
         String outputPath = "output/";
@@ -26,6 +27,7 @@ public class TracerMain {
         try {
             classPool.get("wrapper.ThreadWrapper").writeFile(outputPath);
             classPool.get("wrapper.TraceID").writeFile(outputPath);
+            classPool.get("wrapper.OmegaLogger").writeFile(outputPath);
         } catch (CannotCompileException | IOException | NotFoundException e) {
             e.printStackTrace();
             System.exit(1);
@@ -73,6 +75,37 @@ public class TracerMain {
         }
 
 
+        // start instrument
+//        for (CtClass instrumentClass : targetClass) {
+//            if (instrumentClass.isInterface() || Modifier.isAbstract(instrumentClass.getModifiers()) || instrumentClass.getName().contains("$")) {
+//                continue;
+//            }
+//            boolean flag = false;
+//            for (CtField field : instrumentClass.getDeclaredFields()) {
+//                field.getName().contains("LOG");
+//                flag = true;
+//            }
+//            if (flag) {
+//                continue;
+//            }
+//
+//            try {
+//                CtClass logClass = classPool.get("org.apache.commons.logging.Log");
+//                CtClass logFac = classPool.get("org.apache.commons.logging.LogFactory");
+//                CtField logger = new CtField(logClass, "LOG", instrumentClass);
+//                logger.setModifiers(Modifier.PUBLIC);
+//                logger.setModifiers(Modifier.STATIC);
+//                String[] init = {"this.class"};
+//
+//                instrumentClass.addField(logger, CtField.Initializer.byExpr("org.apache.commons.logging.LogFactory.getLog(\"this\")"));
+//            } catch (CannotCompileException | NotFoundException e) {
+//                e.printStackTrace();
+//                System.out.println(instrumentClass.getName());
+//                System.exit(1);
+//            }
+//        }
+
+
         try {
             CtClass wrapperThread = classPool.get("wrapper.ThreadWrapper");
             for (CtClass instrumentClass : targetClass) {
@@ -86,7 +119,7 @@ public class TracerMain {
                 synBlockInstrument.instrument();
                 instrumentClass.instrument(new LogExprEditor(instrumentClass, classPool));
                 MethodInstrument methodInstrument = new MethodInstrument(instrumentClass);
-                methodInstrument.instrumnet();
+                methodInstrument.instrument();
             }
         } catch (CannotCompileException | NotFoundException e) {
             e.printStackTrace();
@@ -102,16 +135,17 @@ public class TracerMain {
         }
 
         // only method call instrument
-//        for (CtClass instrumentClass : targetClass) {
-//            NaiveInstrument naiveInstrument = new NaiveInstrument(instrumentClass, classPool);
-//            naiveInstrument.instrumnet();
-//        }
+        for (CtClass instrumentClass : targetClass) {
+            NaiveInstrument naiveInstrument = new NaiveInstrument(instrumentClass, classPool);
+            naiveInstrument.instrumnet();
+        }
 
         for (CtClass instrumentClass : targetClass) {
             try {
                 instrumentClass.writeFile(outputPath);
             } catch (CannotCompileException | IOException e) {
                 e.printStackTrace();
+                System.out.println(instrumentClass.getName());
                 System.exit(1);
             }
         }
@@ -137,8 +171,6 @@ public class TracerMain {
                 }
             });
             server.writeFile(outputPath);
-
-
         } catch (NotFoundException | CannotCompileException | IOException e) {
             e.printStackTrace();
             System.exit(1);

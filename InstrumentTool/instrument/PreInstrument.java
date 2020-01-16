@@ -5,11 +5,15 @@ import javassist.expr.ExprEditor;
 import javassist.expr.MethodCall;
 import javassist.expr.NewExpr;
 
+import java.util.HashSet;
+import java.util.Set;
+
 public class PreInstrument extends ExprEditor {
     private CtClass currentCtClass;
     private ClassPool cpool;
     private CtMethod currentMethod;
     private String longName;
+    public static Set<String> search = new HashSet<>();
 
 
     public PreInstrument(CtClass currentCtClass, ClassPool cpool) {
@@ -91,6 +95,10 @@ public class PreInstrument extends ExprEditor {
                     }
                     System.out.println(String.format("\t[OK]preInstrument: Socket %s at %s", methodName, className));
                 }
+            }
+
+            if (longName.contains("java.util.concurrent")) {
+                search.add(longName);
             }
 
         } catch (Exception e) {
