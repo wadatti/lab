@@ -14,6 +14,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class TraceID {
     private static AtomicInteger id = new AtomicInteger(0);
 
+
     public static synchronized int getID() {
         if (id.get() == 0) {
             try {

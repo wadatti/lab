@@ -1,6 +1,7 @@
 package instrument;
 
 import instrument.tool.LogCode;
+import instrument.tool.RPCMethodCreator;
 import javassist.*;
 import javassist.expr.ExprEditor;
 import javassist.expr.MethodCall;
@@ -10,7 +11,7 @@ import java.util.*;
 
 /**
  * instrument for:
- * RPC: implemented VerisonedProtocol interface and parameter has JvmContext object
+ * RPC: implemented VersionedProtocol interface and parameter has JvmContext object
  */
 public class RPCInstrument {
     private Set<CtClass> targetClass;
@@ -26,12 +27,13 @@ public class RPCInstrument {
         collect();
         addField();
         jobSubmissionProtocolInstrument();
+        interTrackerProtocolInstrument();
 
         for (CtClass instrumentClass : targetClass) {
             if (instrumentClass.isInterface()) continue;
             instrumentClass.instrument(new InstrumentJobSubmissionProtocolCaller(instrumentClass));
             instrumentClass.instrument(new InstrumentTaskUmbilicalProtocolCaller(instrumentClass));
-//            instrumentClass.instrument(new InstrumentInterTrackerProtocolCaller(instrumentClass));
+            instrumentClass.instrument(new InstrumentInterTrackerProtocolCaller(instrumentClass));
         }
 
         try {
@@ -39,7 +41,7 @@ public class RPCInstrument {
 
             instrumentJobSubmissionCallee();
             instrumentTaskUmbilicalCallee();
-//            instrumentInterTrackerCallee();
+            instrumentInterTrackerCallee();
         } catch (CannotCompileException e) {
             e.printStackTrace();
             System.exit(1);
@@ -122,10 +124,15 @@ public class RPCInstrument {
         throw new IllegalArgumentException();
     }
 
+    private void interTrackerProtocolInstrument() throws NotFoundException, CannotCompileException {
+        CtClass instrumentInterface = cp.get("org.apache.hadoop.mapred.InterTrackerProtocol");
+        instrumentInterface.addMethod(RPCMethodCreator.interfaceMethodCreate(instrumentInterface, "String", "getSystemDirWrapper"));
+    }
+
     private void jobSubmissionProtocolInstrument() throws NotFoundException, CannotCompileException {
         CtClass instrumentInterface = cp.get("org.apache.hadoop.mapred.JobSubmissionProtocol");
-        CtMethod m = CtNewMethod.make("public org.apache.hadoop.mapred.JobID getNewJobIdWrapper(int TraceID);", instrumentInterface);
-        instrumentInterface.addMethod(m);
+        instrumentInterface.addMethod(RPCMethodCreator.interfaceMethodCreate(instrumentInterface, "org.apache.hadoop.mapred.JobID", "getNewJobIdWrapper"));
+        instrumentInterface.addMethod(RPCMethodCreator.interfaceMethodCreate(instrumentInterface, "String", "getStagingAreaDirWrapper"));
     }
 
     private void instrumentJobSubmissionCallee() throws NotFoundException, CannotCompileException {
@@ -137,47 +144,43 @@ public class RPCInstrument {
                         int line = method.getMethodInfo().getLineNumber(0);
                         String caller = "\"+java.util.Arrays.asList(java.lang.Thread.currentThread().getStackTrace())+\"";
                         if (method.getLongName().substring(method.getLongName().indexOf("(")).contains("JobID")) {
-                            int argNum = countArgumentPosition(method.getLongName(), "JobID");
-                            String hash = "\"+$" + argNum + ".traceID+\"";
-                            CtMethod instrumentMethod = instrumentClass.getDeclaredMethod(method.getName());
-                            instrumentMethod.insertBefore(LogCode.out("RPC_RECV_CH", hash, instrumentClass.getName(), method.getName(), line));
-                            instrumentMethod.insertAfter(LogCode.out("RPC_SEND_CH", hash, instrumentClass.getName(), method.getName(), line));
-                            System.out.println("\t[OK]Trace: RPC method " + method.getName() + " at " + instrumentClass.getName());
+                            instrumentCallee(instrumentClass, method, "JobID", line);
                         } else if (method.getLongName().substring(method.getLongName().indexOf("(")).contains("TaskAttemptID")) {
-                            int argNum = countArgumentPosition(method.getLongName(), "TaskAttemptID");
-                            String hash = "\"+$" + argNum + ".traceID+\"";
-                            CtMethod instrumentMethod = instrumentClass.getDeclaredMethod(method.getName());
-                            instrumentMethod.insertBefore(LogCode.out("RPC_RECV_CH", hash, instrumentClass.getName(), method.getName(), line));
-                            instrumentMethod.insertAfter(LogCode.out("RPC_SEND_CH", hash, instrumentClass.getName(), method.getName(), line));
-                            System.out.println("\t[OK]Trace: RPC method " + method.getName() + " at " + instrumentClass.getName());
+                            instrumentCallee(instrumentClass, method, "TaskAttemptID", line);
                         } else if (method.getLongName().substring(method.getLongName().indexOf("(")).contains("Token")) {
-                            int argNum = countArgumentPosition(method.getLongName(), "Token");
-                            String hash = "\"+$" + argNum + ".traceID+\"";
-                            CtMethod instrumentMethod = instrumentClass.getDeclaredMethod(method.getName());
-                            instrumentMethod.insertBefore(LogCode.out("RPC_RECV_CH", hash, instrumentClass.getName(), method.getName(), line));
-                            instrumentMethod.insertAfter(LogCode.out("RPC_SEND_CH", hash, instrumentClass.getName(), method.getName(), line));
-                            System.out.println("\t[OK]Trace: RPC method " + method.getName() + " at " + instrumentClass.getName());
+                            instrumentCallee(instrumentClass, method, "Token", line);
                         } else if (method.getLongName().substring(method.getLongName().indexOf("(")).contains("Text")) {
-                            int argNum = countArgumentPosition(method.getLongName(), "Text");
-                            String hash = "\"+$" + argNum + ".traceID+\"";
-                            CtMethod instrumentMethod = instrumentClass.getDeclaredMethod(method.getName());
-                            instrumentMethod.insertBefore(LogCode.out("RPC_RECV_CH", hash, instrumentClass.getName(), method.getName(), line));
-                            instrumentMethod.insertAfter(LogCode.out("RPC_SEND_CH", hash, instrumentClass.getName(), method.getName(), line));
-                            System.out.println("\t[OK]Trace: RPC method " + method.getName() + " at " + instrumentClass.getName());
+                            instrumentCallee(instrumentClass, method, "Text", line);
                         }
                     }
-                    CtMethod m = CtNewMethod.make("public org.apache.hadoop.mapred.JobID getNewJobIdWrapper(int TraceID) throws java.io.IOException {" +
-                            LogCode.omegaOut("RPC_RECV_CH", "\"+TraceID+\"", instrumentClass.getName(), "getNewJobIdWrapper", 0) +
+                    CtMethod getNewJobIdWrapper = CtNewMethod.make("public org.apache.hadoop.mapred.JobID getNewJobIdWrapper(int TraceID) throws java.io.IOException {" +
+                            LogCode.omegaOut("RPC_RECV_CH", "\"+TraceID+\"", instrumentClass.getName(), "getNewJobId", 0) +
                             "org.apache.hadoop.mapred.JobID var = getNewJobId(); " +
-                            LogCode.omegaOut("RPC_SEND_CH", "\"+TraceID+\"", instrumentClass.getName(), "getNewJobIdWrapper", 0) +
+                            LogCode.omegaOut("RPC_SEND_CH", "\"+TraceID+\"", instrumentClass.getName(), "getNewJobId", 0) +
                             "return var;}", instrumentClass);
-                    instrumentClass.addMethod(m);
+                    instrumentClass.addMethod(getNewJobIdWrapper);
+
+                    CtMethod getStagingAreaDirWrapper = CtNewMethod.make("public String getStagingAreaDirWrapper(int TraceID) throws java.io.IOException {" +
+                            LogCode.omegaOut("RPC_RECV_CH", "\"+TraceID+\"", instrumentClass.getName(), "getStagingAreaDir", 0) +
+                            "String var = getStagingAreaDir(); " +
+                            LogCode.omegaOut("RPC_SEND_CH", "\"+TraceID+\"", instrumentClass.getName(), "getStagingAreaDir", 0) +
+                            "return var;}", instrumentClass);
+                    instrumentClass.addMethod(getStagingAreaDirWrapper);
                     break;
                 } else if (interFace.getName().equals("org.apache.hadoop.mapred.JTProtocols") && interFace.getName().equals("org.apache.hadoop.mapred.JobSubmissionProtocol")) {
                     System.exit(1);
                 }
             }
         }
+    }
+
+    private void instrumentCallee(CtClass instrumentClass, CtMethod method, String parameterName, int line) throws NotFoundException, CannotCompileException {
+        int argNum = countArgumentPosition(method.getLongName(), parameterName);
+        String hash = "\"+$" + argNum + ".traceID+\"";
+        CtMethod instrumentMethod = instrumentClass.getDeclaredMethod(method.getName());
+        instrumentMethod.insertBefore(LogCode.out("RPC_RECV_CH", hash, instrumentClass.getName(), method.getName(), line));
+        instrumentMethod.insertAfter(LogCode.out("RPC_SEND_CH", hash, instrumentClass.getName(), method.getName(), line));
+        System.out.println("\t[OK]Trace: RPC method " + method.getName() + " at " + instrumentClass.getName());
     }
 
     private void instrumentTaskUmbilicalCallee() throws NotFoundException, CannotCompileException {
@@ -198,12 +201,7 @@ public class RPCInstrument {
                             instrumentMethod.insertAfter(LogCode.omegaOut("RPC_SEND_CH", hash, instrumentClass.getName(), method.getName(), line));
                             System.out.println("\t[OK]Trace: RPC method " + method.getName() + " at " + instrumentClass.getName());
                         } else if (method.getLongName().substring(method.getLongName().indexOf("(")).contains("JobID")) {
-                            int argNum = countArgumentPosition(method.getLongName(), "JobID");
-                            String hash = "\"+$" + argNum + ".traceID+\"";
-                            CtMethod instrumentMethod = instrumentClass.getDeclaredMethod(method.getName());
-                            instrumentMethod.insertBefore(LogCode.out("RPC_RECV_CH", hash, instrumentClass.getName(), method.getName(), line));
-                            instrumentMethod.insertAfter(LogCode.out("RPC_SEND_CH", hash, instrumentClass.getName(), method.getName(), line));
-                            System.out.println("\t[OK]Trace: RPC method " + method.getName() + " at " + instrumentClass.getName());
+                            instrumentCallee(instrumentClass, method, "JobID", line);
                         }
                     }
                     break;
@@ -221,14 +219,14 @@ public class RPCInstrument {
                     int line = method.getMethodInfo().getLineNumber(0);
                     String caller = "\"+java.util.Arrays.asList(java.lang.Thread.currentThread().getStackTrace())+\"";
                     if (method.getLongName().substring(method.getLongName().indexOf("(")).contains("TaskTrackerStatus")) {
-                        int argNum = countArgumentPosition(method.getLongName(), "TaskTrackerStatus");
-                        String hash = "\"+$" + argNum + ".traceID+\"";
-                        CtMethod instrumentMethod = instrumentClass.getDeclaredMethod(method.getName());
-                        instrumentMethod.insertBefore(LogCode.out("RPC_RECV_CH", hash, instrumentClass.getName(), method.getName(), line));
-                        instrumentMethod.insertAfter(LogCode.out("RPC_SEND_CH", hash, instrumentClass.getName(), method.getName(), line));
-                        System.out.println("\t[OK]Trace: RPC Method " + method.getName() + " at " + instrumentClass.getName());
-                        break;
+                        instrumentCallee(instrumentClass, method, "TaskTrackerStatus", line);
                     }
+                    CtMethod getSystemDirWrapper = CtNewMethod.make("public String getSystemDirWrapper(int TraceID) throws java.io.IOException {" +
+                            LogCode.omegaOut("RPC_RECV_CH", "\"+TraceID+\"", instrumentClass.getName(), "getSystemDir", 0) +
+                            "String var = getSystemDir(); " +
+                            LogCode.omegaOut("RPC_SEND_CH", "\"+TraceID+\"", instrumentClass.getName(), "getSystemDir", 0) +
+                            "return var;}", instrumentClass);
+                    instrumentClass.addMethod(getSystemDirWrapper);
                 } else if (interFace.getName().equals("org.apache.hadoop.mapred.JTProtocols") && interFace.getName().equals("org.apache.hadoop.mapred.InterTrackerProtocol")) {
                     System.exit(1);
                 }
@@ -265,36 +263,42 @@ public class RPCInstrument {
                 if (rpcInterfaces.get(i).contains(method) && methodLongName.substring(method.getLongName().indexOf("(")).contains("JobID")) {
                     int argNum = countArgumentPosition(methodLongName, "JobID");
                     m.replace("$" + argNum + ".traceID = wrapper.TraceID.getID();" +
-                            LogCode.out("RPC_SEND_PA", "\"+$" + argNum + ".traceID+\"", currentCtClass.getName(), methodLongName, line) +
+                            LogCode.out("RPC_SEND_PA", "\"+$" + argNum + ".traceID+\"", currentCtClass.getName(), methodName, line) +
                             "$_ = $proceed($$);" +
-                            LogCode.out("RPC_RECV_PA", "\"+$" + argNum + ".traceID+\"", currentCtClass.getName(), methodLongName, line));
+                            LogCode.out("RPC_RECV_PA", "\"+$" + argNum + ".traceID+\"", currentCtClass.getName(), methodName, line));
                     System.out.printf("\t[OK]Trace: RPC %s at %s %n", methodName, currentCtClass.getName());
                 } else if (rpcInterfaces.get(i).contains(method) && methodLongName.substring(method.getLongName().indexOf("(")).contains("TaskAttemptID")) {
                     int argNum = countArgumentPosition(methodLongName, "TaskAttemptID");
                     m.replace("$" + argNum + ".traceID = wrapper.TraceID.getID();" +
-                            LogCode.out("RPC_SEND_PA", "\"+$" + argNum + ".traceID+\"", currentCtClass.getName(), methodLongName, line) +
+                            LogCode.out("RPC_SEND_PA", "\"+$" + argNum + ".traceID+\"", currentCtClass.getName(), methodName, line) +
                             "$_ = $proceed($$);" +
-                            LogCode.out("RPC_RECV_PA", "\"+$" + argNum + ".traceID+\"", currentCtClass.getName(), methodLongName, line));
+                            LogCode.out("RPC_RECV_PA", "\"+$" + argNum + ".traceID+\"", currentCtClass.getName(), methodName, line));
                     System.out.printf("\t[OK]Trace: RPC %s at %s %n", methodName, currentCtClass.getName());
                 } else if (rpcInterfaces.get(i).contains(method) && methodLongName.substring(method.getLongName().indexOf("(")).contains("Token")) {
                     int argNum = countArgumentPosition(methodLongName, "Token");
                     m.replace("$" + argNum + ".traceID = wrapper.TraceID.getID();" +
-                            LogCode.out("RPC_SEND_PA", "\"+$" + argNum + ".traceID+\"", currentCtClass.getName(), methodLongName, line) +
+                            LogCode.out("RPC_SEND_PA", "\"+$" + argNum + ".traceID+\"", currentCtClass.getName(), methodName, line) +
                             "$_ = $proceed($$);" +
-                            LogCode.out("RPC_RECV_PA", "\"+$" + argNum + ".traceID+\"", currentCtClass.getName(), methodLongName, line));
+                            LogCode.out("RPC_RECV_PA", "\"+$" + argNum + ".traceID+\"", currentCtClass.getName(), methodName, line));
                     System.out.printf("\t[OK]Trace: RPC %s at %s %n", methodName, currentCtClass.getName());
                 } else if (rpcInterfaces.get(i).contains(method) && methodLongName.substring(method.getLongName().indexOf("(")).contains("Text")) {
                     int argNum = countArgumentPosition(methodLongName, "Text");
                     m.replace("$" + argNum + ".traceID = wrapper.TraceID.getID();" +
-                            LogCode.out("RPC_SEND_PA", "\"+$" + argNum + ".traceID+\"", currentCtClass.getName(), methodLongName, line) +
+                            LogCode.out("RPC_SEND_PA", "\"+$" + argNum + ".traceID+\"", currentCtClass.getName(), methodName, line) +
                             "$_ = $proceed($$);" +
-                            LogCode.out("RPC_RECV_PA", "\"+$" + argNum + ".traceID+\"", currentCtClass.getName(), methodLongName, line));
+                            LogCode.out("RPC_RECV_PA", "\"+$" + argNum + ".traceID+\"", currentCtClass.getName(), methodName, line));
                     System.out.printf("\t[OK]Trace: RPC %s at %s %n", methodName, currentCtClass.getName());
                 } else if (rpcInterfaces.get(i).contains(method) && methodLongName.contains("org.apache.hadoop.mapred.JobSubmissionProtocol.getNewJobId()")) {
                     m.replace("int tempId = wrapper.TraceID.getID();" +
-                            LogCode.omegaOut("RPC_SEND_PA", "\"+tempId+\"", currentCtClass.getName(), methodLongName, line) +
+                            LogCode.omegaOut("RPC_SEND_PA", "\"+tempId+\"", currentCtClass.getName(), methodName, line) +
                             "$_ = $0.getNewJobIdWrapper(tempId);" +
-                            LogCode.omegaOut("RPC_RECV_PA", "\"+tempId+\"", currentCtClass.getName(), methodLongName, line));
+                            LogCode.omegaOut("RPC_RECV_PA", "\"+tempId+\"", currentCtClass.getName(), methodName, line));
+                    System.out.printf("\t[OK]Trace: RPC %s at %s %n", methodName, currentCtClass.getName());
+                } else if (rpcInterfaces.get(i).contains(method) && methodLongName.contains("org.apache.hadoop.mapred.JobSubmissionProtocol.getStagingAreaDir()")) {
+                    m.replace("int tempId = wrapper.TraceID.getID();" +
+                            LogCode.omegaOut("RPC_SEND_PA", "\"+tempId+\"", currentCtClass.getName(), methodName, line) +
+                            "$_ = $0.getStagingAreaDirWrapper(tempId);" +
+                            LogCode.omegaOut("RPC_RECV_PA", "\"+tempId+\"", currentCtClass.getName(), methodName, line));
                     System.out.printf("\t[OK]Trace: RPC %s at %s %n", methodName, currentCtClass.getName());
                 }
             } catch (NotFoundException e) {
@@ -324,20 +328,20 @@ public class RPCInstrument {
                 if (rpcInterfaces.get(i).contains(method) && methodLongName.substring(methodLongName.indexOf("(")).contains("JvmContext")) {
                     int argNum = countArgumentPosition(methodLongName, "JvmContext");
                     m.replace("$" + argNum + ".traceID = wrapper.TraceID.getID();" +
-                            LogCode.out("RPC_SEND_PA", "\"+$" + argNum + ".traceID+\"", currentCtClass.getName(), methodLongName, line) +
-                            LogCode.omegaOut("RPC_SEND_PA", "\"+$" + argNum + ".traceID+\"", currentCtClass.getName(), methodLongName, line) +
+                            LogCode.out("RPC_SEND_PA", "\"+$" + argNum + ".traceID+\"", currentCtClass.getName(), methodName, line) +
+                            LogCode.omegaOut("RPC_SEND_PA", "\"+$" + argNum + ".traceID+\"", currentCtClass.getName(), methodName, line) +
                             "$_ = $proceed($$);" +
-                            LogCode.out("RPC_RECV_PA", "\"+$" + argNum + ".traceID+\"", currentCtClass.getName(), methodLongName, line) +
-                            LogCode.omegaOut("RPC_RECV_PA", "\"+$" + argNum + ".traceID+\"", currentCtClass.getName(), methodLongName, line));
+                            LogCode.out("RPC_RECV_PA", "\"+$" + argNum + ".traceID+\"", currentCtClass.getName(), methodName, line) +
+                            LogCode.omegaOut("RPC_RECV_PA", "\"+$" + argNum + ".traceID+\"", currentCtClass.getName(), methodName, line));
                     System.out.printf("\t[OK]Trace: RPC %s at %s %n", methodName, currentCtClass.getName());
                 } else if (rpcInterfaces.get(i).contains(method) && methodLongName.substring(methodLongName.indexOf("(")).contains("JobID")) {
                     int argNum = countArgumentPosition(methodLongName, "JobID");
                     m.replace("$" + argNum + ".traceID = wrapper.TraceID.getID();" +
-                            LogCode.out("RPC_SEND_PA", "\"+$" + argNum + ".traceID+\"", currentCtClass.getName(), methodLongName, line) +
-                            LogCode.omegaOut("RPC_SEND_PA", "\"+$" + argNum + ".traceID+\"", currentCtClass.getName(), methodLongName, line) +
+                            LogCode.out("RPC_SEND_PA", "\"+$" + argNum + ".traceID+\"", currentCtClass.getName(), methodName, line) +
+                            LogCode.omegaOut("RPC_SEND_PA", "\"+$" + argNum + ".traceID+\"", currentCtClass.getName(), methodName, line) +
                             "$_ = $proceed($$);" +
-                            LogCode.out("RPC_RECV_PA", "\"+$" + argNum + ".traceID+\"", currentCtClass.getName(), methodLongName, line) +
-                            LogCode.omegaOut("RPC_RECV_PA", "\"+$" + argNum + ".traceID+\"", currentCtClass.getName(), methodLongName, line));
+                            LogCode.out("RPC_RECV_PA", "\"+$" + argNum + ".traceID+\"", currentCtClass.getName(), methodName, line) +
+                            LogCode.omegaOut("RPC_RECV_PA", "\"+$" + argNum + ".traceID+\"", currentCtClass.getName(), methodName, line));
                     System.out.printf("\t[OK]Trace: RPC %s at %s %n", methodName, currentCtClass.getName());
                 }
             } catch (NotFoundException e) {
@@ -366,9 +370,15 @@ public class RPCInstrument {
                 if (rpcInterfaces.get(i).contains(method) && methodLongName.substring(method.getLongName().indexOf("(")).contains("TaskTrackerStatus")) {
                     int argNum = countArgumentPosition(methodLongName, "TaskTrackerStatus");
                     m.replace("$" + argNum + ".traceID = wrapper.TraceID.getID();" +
-                            LogCode.out("RPC_SEND_PA", "\"+$" + argNum + ".traceID+\"", currentCtClass.getName(), methodLongName, line) +
+                            LogCode.out("RPC_SEND_PA", "\"+$" + argNum + ".traceID+\"", currentCtClass.getName(), methodName, line) +
                             "$_ = $proceed($$);" +
-                            LogCode.out("RPC_RECV_PA", "\"+$" + argNum + ".traceID+\"", currentCtClass.getName(), methodLongName, line));
+                            LogCode.out("RPC_RECV_PA", "\"+$" + argNum + ".traceID+\"", currentCtClass.getName(), methodName, line));
+                    System.out.printf("\t[OK]Trace: RPC %s at %s %n", methodName, currentCtClass.getName());
+                } else if (rpcInterfaces.get(i).contains(method) && methodLongName.contains("org.apache.hadoop.mapred.InterTrackerProtocol.getSystemDir()")) {
+                    m.replace("int tempId = wrapper.TraceID.getID();" +
+                            LogCode.omegaOut("RPC_SEND_PA", "\"+tempId+\"", currentCtClass.getName(), methodName, line) +
+                            "$_ = $0.getSystemDirWrapper(tempId);" +
+                            LogCode.omegaOut("RPC_RECV_PA", "\"+tempId+\"", currentCtClass.getName(), methodName, line));
                     System.out.printf("\t[OK]Trace: RPC %s at %s %n", methodName, currentCtClass.getName());
                 }
             } catch (NotFoundException e) {

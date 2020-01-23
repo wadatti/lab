@@ -135,10 +135,10 @@ public class TracerMain {
         }
 
         // only method call instrument
-        for (CtClass instrumentClass : targetClass) {
-            NaiveInstrument naiveInstrument = new NaiveInstrument(instrumentClass, classPool);
-            naiveInstrument.instrumnet();
-        }
+//        for (CtClass instrumentClass : targetClass) {
+//            NaiveInstrument naiveInstrument = new NaiveInstrument(instrumentClass, classPool);
+//            naiveInstrument.instrumnet();
+//        }
 
         for (CtClass instrumentClass : targetClass) {
             try {
@@ -156,12 +156,10 @@ public class TracerMain {
             server.instrument(new ExprEditor() {
                 @Override
                 public void edit(MethodCall m) {
-                    String getName = "\"+$1.hashCode()+\"";
                     try {
                         if (m.getMethod().getName().contains("take")) {
                             m.replace("$_ = $proceed();" +
-                                    "System.out.println(\"TRACEEEEEEEEYEEEEEEESSSSSSSSSS \"+ $_.toString());" +
-                                    "System.out.println(" + getName + ");");
+                                    "System.out.println(\"[RPC TRACE] \"+ $_.toString());");
                             System.out.println("deketa");
                         }
                     } catch (NotFoundException | CannotCompileException e) {

@@ -7,7 +7,7 @@ public class LogCode {
 
     public static String out(String type, String hash, String cName, int line) {
         String text = LogOut(type, hash, cName, line);
-        return "System.out.println(\"" + text + "\");";
+        return "wrapper.OmegaLogger.LogOutPutFile(\"" + text + "\");";
 
     }
 
@@ -19,7 +19,7 @@ public class LogCode {
 
     public static String out(String type, String hash, String cName, String mName, int line) {
         String text = LogOut(type, hash, cName, mName, line);
-        return "System.out.println(\"" + text + "\");";
+        return "wrapper.OmegaLogger.LogOutPutFile(\"" + text + "\");";
     }
 
     public static String LogOut(String type, String hash, String cName, String mName, int line) {
@@ -41,7 +41,7 @@ public class LogCode {
 
     public static String out(String type, String hash, String cName, String mName, String currentClass, int line) {
         String text = LogOut(type, hash, cName, mName, currentClass, line);
-        return "System.out.println(\"" + text + "\");";
+        return "wrapper.OmegaLogger.LogOutPutFile(\"" + text + "\");";
     }
 
     public static String LogOut(String type, String hash, String cName, String mName, String currentClass, int line) {
