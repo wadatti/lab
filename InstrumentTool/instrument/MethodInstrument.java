@@ -39,15 +39,15 @@ public class MethodInstrument {
 
             // instrument to extending java.lang.Thread(wrapper.ThreadWrapper) class and implements java.lang.Runnable
             if (m.getDeclaringClass().getSuperclass().getName().equals("wrapper.ThreadWrapper")) {
-                m.insertBefore(LogCode.out("FORK_CH", hash, c.getName(), line));
-                m.insertAfter(LogCode.out("JOIN_CH", hash, c.getName(), line));
+                m.insertBefore(LogCode.out("FORK_CH", hash, c.getName(), m.getName(), line));
+                m.insertAfter(LogCode.out("JOIN_CH", hash, c.getName(), m.getName(), line));
                 System.out.println(String.format("\t[OK]Trace: wrapper.ThreadWrapper.run() at %s%n", c.getName()));
                 return;
             } else {
                 for (CtClass interFace : m.getDeclaringClass().getInterfaces()) {
                     if (interFace.getName().equals("java.lang.Runnable")) {
-                        m.insertBefore(LogCode.out("FORK_CH", hash, c.getName(), line));
-                        m.insertAfter(LogCode.out("JOIN_CH", hash, c.getName(), line));
+                        m.insertBefore(LogCode.out("FORK_CH", hash, c.getName(), m.getName(), line));
+                        m.insertAfter(LogCode.out("JOIN_CH", hash, c.getName(), m.getName(), line));
                         System.out.println(String.format("\t[OK]Trace: run() at %s%n", c.getName()));
                         return;
                     }
@@ -61,8 +61,8 @@ public class MethodInstrument {
         int line = m.getMethodInfo().getLineNumber(0);
         if (Modifier.isSynchronized(m.getModifiers())) {
             if (Modifier.isStatic(m.getModifiers())) return;
-            m.insertBefore(LogCode.out("LOCK", "0", c.getName(), line));
-            m.insertAfter(LogCode.out("REL", "0", c.getName(), line));
+            m.insertBefore(LogCode.out("LOCK", "0", c.getName(), m.getName(), line));
+            m.insertAfter(LogCode.out("REL", "0", c.getName(), m.getName(), line));
             System.out.println(String.format("\t[OK]Trace: sync method %s", m.getName()));
         }
     }

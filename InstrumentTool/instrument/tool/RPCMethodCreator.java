@@ -15,4 +15,14 @@ public class RPCMethodCreator {
         }
         return method;
     }
+
+    public static CtMethod interfaceMethodCreate(CtClass instrumentInterface, String returnType, String methodName, String originalArgument) {
+        CtMethod method = null;
+        try {
+            method = CtNewMethod.make("public " + returnType + " " + methodName + "(" + originalArgument + " arg, int TraceID);", instrumentInterface);
+        } catch (CannotCompileException e) {
+            e.printStackTrace();
+        }
+        return method;
+    }
 }

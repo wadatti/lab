@@ -4,6 +4,7 @@ import instrument.tool.LogCode;
 import javassist.*;
 import javassist.expr.*;
 
+
 /**
  * instrument for:
  * WRITE/READ: FieldAccess
@@ -70,7 +71,7 @@ public class LogExprEditor extends ExprEditor {
                 if (!m.getSignature().equals("()V")) return;
                 String hash_tmp = "\"+((wrapper.ThreadWrapper)$0).getID()+\"";
                 m.replace(
-                        LogCode.out("FORK_PA", hash_tmp, className, line) +
+                        LogCode.out("FORK_PA", hash_tmp, className, methodName, line) +
                                 "$_ = $proceed();"
                 );
                 System.out.println("\t[OK]Trace: java.lang.Thread.start() at " + className);
@@ -82,7 +83,7 @@ public class LogExprEditor extends ExprEditor {
                 if (!m.getSignature().equals("()V")) return;
                 String hash_tmp = "\"+((wrapper.ThreadWrapper)$0).getID()+\"";
                 m.replace(
-                        LogCode.out("JOIN_PA", hash_tmp, className, line) +
+                        LogCode.out("JOIN_PA", hash_tmp, className, methodName, line) +
                                 "$_ = $proceed();"
                 );
                 System.out.println("\t[OK]Trace: java.lang.Thread.join() at " + className);
@@ -92,14 +93,14 @@ public class LogExprEditor extends ExprEditor {
             // synchronized block
             if (m.getClassName().equals("wrapper.SyncBlock") && m.getMethodName().equals("begin")) {
                 String hash_tmp = "\"+$1.hashCode()+\"";
-                m.replace(LogCode.out("LOCK", hash_tmp, className, line));
+                m.replace(LogCode.out("LOCK", hash_tmp, className, methodName, line));
                 System.out.println("\t[OK]Trace: synchronized Block start at " + className);
                 return;
             }
 
             if (m.getClassName().equals("wrapper.SyncBlock") && m.getMethodName().equals("end")) {
                 String hash_tmp = "\"+$1.hashCode()+\"";
-                m.replace(LogCode.out("REL", hash_tmp, className, line));
+                m.replace(LogCode.out("REL", hash_tmp, className, methodName, line));
                 System.out.println("\t[OK]Trace: synchronized Block start at " + className);
                 return;
             }
@@ -111,7 +112,7 @@ public class LogExprEditor extends ExprEditor {
                 if (longName.contains("Object")) {
                     m.replace(
                             "$1.TraceObjectID = wrapper.TraceID.getID;" +
-                                    LogCode.out("SEND_SO", hash_tmp, className, line) +
+                                    LogCode.out("SEND_SO", hash_tmp, className, methodName, line) +
                                     "$proceed($$);"
                     );
                 } else {
@@ -127,7 +128,7 @@ public class LogExprEditor extends ExprEditor {
                 if (longName.contains("Object")) {
                     m.replace(
                             "$_ = $proceed($$);" +
-                                    LogCode.out("RECV_SO", hash_tmp, className, line)
+                                    LogCode.out("RECV_SO", hash_tmp, className, methodName, line)
 
                     );
                 } else {
@@ -149,7 +150,7 @@ public class LogExprEditor extends ExprEditor {
 				*/
 
                 m.replace
-                        (LogCode.out("FORK_PA", "\"+$1.hashCode()+\"", className, line) +
+                        (LogCode.out("FORK_PA", "\"+$1.hashCode()+\"", className, methodName, line) +
                                 "$_ = $proceed($$);"
                         );
 
@@ -159,17 +160,42 @@ public class LogExprEditor extends ExprEditor {
             // lock / unlock
             if (longName.contains("java.util.concurrent.locks.ReentrantLock.lock()")) {
                 m.replace
-                        (LogCode.out("LOCK", "\"+$0.hashCode()+\"", className, line) +
-                                "$_ = $proceed($$);"
+                        (
+                                "$_ = $proceed($$);" +
+                                        LogCode.out("LOCK", "\"+$0.hashCode()+\"", className, methodName, line)
                         );
                 System.out.println(String.format("\t[OK]Trace: ReentrantLock.lock() at %s", className));
             }
             if (longName.contains("java.util.concurrent.locks.ReentrantLock.unlock()")) {
                 m.replace
-                        (LogCode.out("REL", "\"+$0.hashCode()+\"", className, line) +
+                        (LogCode.out("REL", "\"+$0.hashCode()+\"", className, methodName, line) +
                                 "$_ = $proceed($$);"
                         );
                 System.out.println(String.format("\t[OK]Trace: ReentrantLock.unlock() at %s", className));
+            }
+
+            // wait / notify
+            if (longName.contains("java.lang.Object.notify()")) {
+                String hash_tmp = "\"+$_.hashCode()+\"";
+                m.replace
+                        (
+                                LogCode.out("NOTIFY", "\"+$0.hashCode()+\"", className, methodName, line) +
+                                        "$_ = $proceed($$);"
+                        );
+            }
+            if (longName.contains("java.lang.Object.notifyAll()")) {
+                String hash_tmp = "\"+$_.hashCode()+\"";
+                m.replace
+                        (
+                                LogCode.out("NOTIFYALL", "\"+$0.hashCode()+\"", className, methodName, line) +
+                                        "$_ = $proceed($$);"
+                        );
+            }
+            if (longName.contains("java.lang.Object.wait()")) {
+                m.replace(
+                        "$_ = $proceed($$);" +
+                        LogCode.out("WAITEXIT", "\"+$0.hashCode()+\"", className, methodName, line)
+                );
             }
         } catch (Exception e) {
             e.printStackTrace();
