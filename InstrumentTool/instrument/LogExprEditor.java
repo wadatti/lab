@@ -179,7 +179,9 @@ public class LogExprEditor extends ExprEditor {
                 String hash_tmp = "\"+$_.hashCode()+\"";
                 m.replace
                         (
-                                LogCode.out("NOTIFY", "\"+$0.hashCode()+\"", className, methodName, line) +
+                                "while(wrapper.OmegaObject.flag.get() && wrapper.OmegaObject.waitNum.get() > 0){}" +
+                                        "if(wrapper.OmegaObject.waitNum.get() > 0){OmegaObject.flag.set(true);}" +
+                                        LogCode.out("NOTIFY", "\"+$0.hashCode()+\"", className, methodName, line) +
                                         "$_ = $proceed($$);"
                         );
             }
@@ -193,8 +195,11 @@ public class LogExprEditor extends ExprEditor {
             }
             if (longName.contains("java.lang.Object.wait()")) {
                 m.replace(
-                        "$_ = $proceed($$);" +
-                        LogCode.out("WAITEXIT", "\"+$0.hashCode()+\"", className, methodName, line)
+                        "wrapper.OmegaObject.waitNum.getAndIncrement();" +
+                                "$_ = $proceed($$);" +
+                                LogCode.out("WAITEXIT", "\"+$0.hashCode()+\"", className, methodName, line) +
+                                "OmegaObject.flag.set(false);" +
+                                "wrapper.OmegaObject.waitNum.getAndDecrement();"
                 );
             }
         } catch (Exception e) {

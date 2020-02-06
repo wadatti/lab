@@ -1,9 +1,9 @@
 package wrapper;
 
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.locks.ReentrantLock;
 
 public class OmegaObject {
-    public static ReentrantLock lock = new ReentrantLock();
-    public static AtomicInteger num = new AtomicInteger(0);
+    public static AtomicBoolean flag = new AtomicBoolean(false);
+    public static AtomicInteger waitNum = new AtomicInteger(0);
 }

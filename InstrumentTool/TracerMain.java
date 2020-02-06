@@ -28,6 +28,7 @@ public class TracerMain {
             classPool.get("wrapper.ThreadWrapper").writeFile(outputPath);
             classPool.get("wrapper.TraceID").writeFile(outputPath);
             classPool.get("wrapper.OmegaLogger").writeFile(outputPath);
+            classPool.get("wrapper.OmegaObject").writeFile(outputPath);
         } catch (CannotCompileException | IOException | NotFoundException e) {
             e.printStackTrace();
             System.exit(1);
