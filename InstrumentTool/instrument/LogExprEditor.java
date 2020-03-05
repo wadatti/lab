@@ -106,7 +106,33 @@ public class LogExprEditor extends ExprEditor {
             }
 
             // Socket
-            // socket send
+            // socket write
+            if (methodName.equals("write") && currentCtClass.getName().contains("MapOutputServlet")) {
+                m.replace(
+                        "byte[] metaID = java.nio.ByteBuffer.allocate(4).putInt(wrapper.TraceID.getID()).array();" +
+                                "wrapper.OmegaLogger.LogOutPutFile(\"[TemporaryTrace]SEND_SO METAID  \"+java.nio.ByteBuffer.wrap(metaID).getInt());" +
+                                "shuffleMetrics.outputBytes(4L);" +
+                                "outStream.write(metaID,0,4);" +
+                                "$_ = $proceed($$);" +
+                                LogCode.byteOut("SEND_SO", "$1", className, methodName, line));
+            }
+
+            // socket read
+            if (methodName.equals("read") && currentCtClass.getName().contains("MapOutputCopier")) {
+                if (line == 1619) {
+                    m.replace(
+                            "byte[] metaID = new byte[4];" +
+                                    "input.read(metaID,0,4); " +
+                                    "wrapper.OmegaLogger.LogOutPutFile(\"[TemporaryTrace]RECV_SO METAID  \"+java.nio.ByteBuffer.wrap(metaID).getInt());" +
+                                    "$_ = $proceed($$);   $_+=4;" +
+                                    LogCode.byteOut("RECV_SO", "$1", className, methodName, line));
+                } else {
+                    m.replace(
+                                    "$_ = $proceed($$);" +
+                                    LogCode.byteOut("RECV_SO", "$1", className, methodName, line));
+                }
+            }
+
             if (longName.contains("Stream.write")) {
                 String hash_tmp = "\"+$1.TraceObjectID+\"";
                 if (longName.contains("Object")) {
@@ -119,7 +145,6 @@ public class LogExprEditor extends ExprEditor {
                     return;
                 }
                 System.out.printf("\t[OK]Trace: Socket %s at %s", methodName, className);
-
             }
 
             // socket recv
@@ -179,9 +204,7 @@ public class LogExprEditor extends ExprEditor {
                 String hash_tmp = "\"+$_.hashCode()+\"";
                 m.replace
                         (
-                                "while(wrapper.OmegaObject.flag.get() && wrapper.OmegaObject.waitNum.get() > 0){}" +
-                                        "if(wrapper.OmegaObject.waitNum.get() > 0){OmegaObject.flag.set(true);}" +
-                                        LogCode.out("NOTIFY", "\"+$0.hashCode()+\"", className, methodName, line) +
+                                LogCode.out("NOTIFY", "\"+$0.hashCode()+\"", className, methodName, line) +
                                         "$_ = $proceed($$);"
                         );
             }
@@ -195,11 +218,8 @@ public class LogExprEditor extends ExprEditor {
             }
             if (longName.contains("java.lang.Object.wait()")) {
                 m.replace(
-                        "wrapper.OmegaObject.waitNum.getAndIncrement();" +
-                                "$_ = $proceed($$);" +
-                                LogCode.out("WAITEXIT", "\"+$0.hashCode()+\"", className, methodName, line) +
-                                "OmegaObject.flag.set(false);" +
-                                "wrapper.OmegaObject.waitNum.getAndDecrement();"
+                        "$_ = $proceed($$);" +
+                                LogCode.out("WAITEXIT", "\"+$0.hashCode()+\"", className, methodName, line)
                 );
             }
         } catch (Exception e) {

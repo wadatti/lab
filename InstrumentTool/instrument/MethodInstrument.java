@@ -22,8 +22,9 @@ public class MethodInstrument {
     public void instrument() {
         try {
             for (CtMethod m : c.getDeclaredMethods()) {
-                ThreadRunInst(c, m);
+                threadRunInst(c, m);
                 SynMethodInst(c, m);
+//                doGetInst(c, m);
             }
         } catch (CannotCompileException | NotFoundException e) {
             e.printStackTrace();
@@ -31,8 +32,17 @@ public class MethodInstrument {
         }
     }
 
+    public static void doGetInst(CtClass c, CtMethod m) throws CannotCompileException {
+        if (m.getName().equals("doGet")) {
+            int line = m.getMethodInfo().getLineNumber(0);
+            String hash = "\"+this.hashCode()+\"";
+            m.insertAfter(LogCode.out("doGet", hash, c.getName(), m.getName(), line));
+
+        }
+    }
+
     // children fork join
-    public static void ThreadRunInst(CtClass c, CtMethod m) throws CannotCompileException, NotFoundException {
+    public static void threadRunInst(CtClass c, CtMethod m) throws CannotCompileException, NotFoundException {
         if (m.getName().equals("run") && m.getSignature().equals("()V")) {
             int line = m.getMethodInfo().getLineNumber(0);
             String hash = "\"+this.hashCode()+\"";

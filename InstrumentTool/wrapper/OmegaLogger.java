@@ -26,4 +26,13 @@ public class OmegaLogger {
             e.printStackTrace();
         }
     }
+
+    public static String byteOutput(byte[] data) {
+        String s = "";
+
+        for (byte a : data) {
+            s += String.format("%02X", a);
+        }
+        return s;
+    }
 }

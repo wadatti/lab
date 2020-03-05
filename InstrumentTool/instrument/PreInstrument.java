@@ -38,6 +38,8 @@ public class PreInstrument extends ExprEditor {
                 System.out.println(String.format("\t[OK]preInstrument: java.lang.Thread at %s", className));
             }
 
+
+
         } catch (CannotCompileException | NotFoundException e) {
             e.printStackTrace();
             System.out.println(longName);
@@ -53,11 +55,13 @@ public class PreInstrument extends ExprEditor {
         int line = m.getLineNumber();
 
 
+
         // Socket
         try {
             CtMethod mm = m.getMethod();
             longName = mm.getLongName();
             currentMethod = m.getMethod();
+
 
 
             // socket send
