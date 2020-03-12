@@ -14,6 +14,8 @@ MapReduce向けに設計中だが、他のJavaプログラムにも適応可能
 [A compression technique to materialize transitive closure] [ACMTDS'90]のアルゴリズムに基づいた実装
 ## RMI
 Java RMIのテストコード
+## TextGenerator
+Hadoop MapReduceのワードカウントに入力として与えるテキストファイル生成プログラム
 
 
 <!-- リンク -->
