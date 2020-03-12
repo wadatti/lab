@@ -110,6 +110,10 @@ public class TracerMain {
         try {
             CtClass wrapperThread = classPool.get("wrapper.ThreadWrapper");
             for (CtClass instrumentClass : targetClass) {
+                AddMetaDataField addMetaDataField = new AddMetaDataField(instrumentClass);
+                addMetaDataField.addField();
+            }
+            for (CtClass instrumentClass : targetClass) {
                 if (instrumentClass.getSuperclass().getName().equals("java.lang.Thread")) {
                     instrumentClass.setSuperclass(wrapperThread);
                 }

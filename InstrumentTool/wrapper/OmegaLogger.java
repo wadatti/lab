@@ -35,4 +35,12 @@ public class OmegaLogger {
         }
         return s;
     }
+
+    public static void printStackTrace(Throwable t) {
+        StringWriter sw = new StringWriter();
+        PrintWriter pw = new PrintWriter(sw);
+        t.printStackTrace(pw);
+        pw.flush();
+        LogOutPutFile(sw.toString());
+    }
 }

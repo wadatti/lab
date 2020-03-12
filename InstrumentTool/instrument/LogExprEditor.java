@@ -57,6 +57,7 @@ public class LogExprEditor extends ExprEditor {
     @Override
     public void edit(MethodCall m) {
         String methodName = m.getMethodName();
+        String methodClassName = m.getClassName();
         String className = currentCtClass.getName();
         int line = m.getLineNumber();
 
@@ -108,30 +109,74 @@ public class LogExprEditor extends ExprEditor {
             // Socket
             // socket write
             if (methodName.equals("write") && currentCtClass.getName().contains("MapOutputServlet")) {
+//                m.replace(
+//                        "int omegaID = TraceID.getID();" +
+//                                "response.setHeader(\"OmegaIDHeader\",String.valueOf(omegaID));" +
+//                                LogCode.out("SEND_SO", "\"+omegaID+\"", className, methodName, line) +
+//                                "$_ = $proceed($$);"
+//                );
                 m.replace(
                         "byte[] metaID = java.nio.ByteBuffer.allocate(4).putInt(wrapper.TraceID.getID()).array();" +
-                                "wrapper.OmegaLogger.LogOutPutFile(\"[TemporaryTrace]SEND_SO METAID  \"+java.nio.ByteBuffer.wrap(metaID).getInt());" +
-                                "shuffleMetrics.outputBytes(4L);" +
-                                "outStream.write(metaID,0,4);" +
-                                "$_ = $proceed($$);" +
-                                LogCode.byteOut("SEND_SO", "$1", className, methodName, line));
+                                LogCode.out("SEND_SO", "\"+java.nio.ByteBuffer.wrap(metaID).getInt()+\"", className, methodName, line) +
+                                LogCode.out("SEND_SO_size", "\"+$3+\"", className, methodName, line) +
+                                "$_ = $proceed(metaID,0,((int)metaID.length));" +
+                                "$_ = $proceed($$);"
+                );
             }
 
+//            if (methodName.equals("setHeader")) {
+//                m.replace(
+//                        "if(org.apache.hadoop.mapred.MRConstants.RAW_MAP_OUTPUT_LENGTH.equals(" + "$1" + ")){" +
+//                                "$proceed($1,String.valueOf(Integer.valueOf($2)+4)); " +
+//                                "wrapper.OmegaLogger.LogOutPutFile(\"[TemporaryTrace]RECV_SO RAW_MAP_OUTPUT_LENGTH  \"+$2);}else if(org.apache.hadoop.mapred.MRConstants.MAP_OUTPUT_LENGTH.equals(" + "$1" + ")){" +
+//                                "$proceed($1,String.valueOf(Integer.valueOf($2)+4));" +
+//                                "wrapper.OmegaLogger.LogOutPutFile(\"[TemporaryTrace]RECV_SO MAP_OUTPUT_LENGTH  \"+$2);} else{" +
+//                                "$proceed($$);}"
+//                );
+//
+//            }
+
             // socket read
-            if (methodName.equals("read") && currentCtClass.getName().contains("MapOutputCopier")) {
-                if (line == 1619) {
+//            if (methodName.equals("read") && currentCtClass.getName().contains("MapOutputCopier")) {
+//                if (line == 1619) {
+//                    m.replace(
+////                            "String omegaId = connection.getHeaderField(\"OmegaIDHeader\");" +
+//                            "$_ = $proceed($$);"
+////                                    LogCode.out("RECV_SO", "\"+omegaId+\"", className, methodName, line)
+//                    );
+//                } else {
+//                    m.replace(
+////                            LogCode.out("RECV_SO", "START", className, methodName, line) +
+//                            "try{$_ = $proceed($$);}catch(Throwable e){wrapper.OmegaLogger.LogOutPutFile(\"omegaError:\"+e.getMessage());}" +
+//                                    LogCode.byteOut("RECV_SO", "$1", className, methodName, line));
+//                }
+//            }
+
+            if (currentCtClass.getName().contains("IFileInputStream")) {
+                if (methodClassName.equals("java.io.InputStream") && methodName.equals("read")) {
                     m.replace(
-                            "byte[] metaID = new byte[4];" +
-                                    "input.read(metaID,0,4); " +
-                                    "wrapper.OmegaLogger.LogOutPutFile(\"[TemporaryTrace]RECV_SO METAID  \"+java.nio.ByteBuffer.wrap(metaID).getInt());" +
-                                    "$_ = $proceed($$);   $_+=4;" +
-                                    LogCode.byteOut("RECV_SO", "$1", className, methodName, line));
-                } else {
-                    m.replace(
-                                    "$_ = $proceed($$);" +
-                                    LogCode.byteOut("RECV_SO", "$1", className, methodName, line));
+                            "if(readFlag){" +
+                                    "byte[] metaID = java.nio.ByteBuffer.allocate(4).putInt(wrapper.TraceID.getID()).array();" +
+                                    "Throwable t = new Throwable();" +
+                                    "java.io.StringWriter sw = new java.io.StringWriter();" +
+                                    "java.io.PrintWriter pw = new java.io.PrintWriter(sw);" +
+                                    "pw.flush();" +
+                                    "t.printStackTrace(pw);" +
+                                    "if(sw.toString().contains(\"shuffleInMemory\")){" +
+                                    "$_ = $proceed(metaID,0,4);" + LogCode.out("RECV_SO", "\"+java.nio.ByteBuffer.wrap(metaID).getInt()+\"", className, methodName, line) +
+                                    "}readFlag = false;" +
+                                    "$_ = $proceed($$);}else{$_ = $proceed($$);}"
+                    );
+                }
+
+                if (methodName.contains("readFully")) {
+                    m.replace("$proceed($$);" +
+                            LogCode.byteOut("OmegaCheck", "$2", className, methodName, line) +
+                            "Throwable th = new Throwable();" +
+                            "wrapper.OmegaLogger.printStackTrace(th);");
                 }
             }
+
 
             if (longName.contains("Stream.write")) {
                 String hash_tmp = "\"+$1.TraceObjectID+\"";

@@ -22,27 +22,41 @@ public class MethodInstrument {
     public void instrument() {
         try {
             for (CtMethod m : c.getDeclaredMethods()) {
-                threadRunInst(c, m);
-                SynMethodInst(c, m);
-//                doGetInst(c, m);
+                threadRunInst(m);
+                SynMethodInst(m);
             }
+//            if (c.getName().contains("IFileInputStream"))
+//                iFileInputStreamInstrument();
+//            if (c.getName().contains("ReduceTask"))
+//                reduceTaskInstrument();
         } catch (CannotCompileException | NotFoundException e) {
             e.printStackTrace();
             System.exit(1);
         }
     }
 
-    public static void doGetInst(CtClass c, CtMethod m) throws CannotCompileException {
-        if (m.getName().equals("doGet")) {
-            int line = m.getMethodInfo().getLineNumber(0);
-            String hash = "\"+this.hashCode()+\"";
-            m.insertAfter(LogCode.out("doGet", hash, c.getName(), m.getName(), line));
-
+    public void iFileInputStreamInstrument() throws CannotCompileException {
+        for (CtConstructor constructor : c.getDeclaredConstructors()) {
+            constructor.insertBeforeBody("$2 -= 4L;");
         }
     }
 
+    public void reduceTaskInstrument() throws CannotCompileException {
+        for (CtMethod method : c.getDeclaredMethods()) {
+            if (method.getName().contains("shuffleInMemory")) {
+                method.insertAfter(
+                        "int i = $_.data.length - 4; byte[] temporary = new byte[i];" +
+                                "for(i=4;i<$_.data.length;i++){temporary[i-4]=$_.data[i];}" +
+                                "$_.data = temporary;"
+                );
+            }
+        }
+    }
+
+//    public static void do
+
     // children fork join
-    public static void threadRunInst(CtClass c, CtMethod m) throws CannotCompileException, NotFoundException {
+    public void threadRunInst(CtMethod m) throws CannotCompileException, NotFoundException {
         if (m.getName().equals("run") && m.getSignature().equals("()V")) {
             int line = m.getMethodInfo().getLineNumber(0);
             String hash = "\"+this.hashCode()+\"";
@@ -67,7 +81,7 @@ public class MethodInstrument {
     }
 
     // Synchronized Method
-    public static void SynMethodInst(CtClass c, CtMethod m) throws CannotCompileException {
+    public void SynMethodInst(CtMethod m) throws CannotCompileException {
         int line = m.getMethodInfo().getLineNumber(0);
         if (Modifier.isSynchronized(m.getModifiers())) {
             if (Modifier.isStatic(m.getModifiers())) return;
