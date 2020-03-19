@@ -91,6 +91,7 @@ public class Main {
                 }
             }
 
+            //必ずしもJOIN＿CHに対してFORK＿PAがあるとは限らない
             for (Integer hash : joinCH) {
                 if (joinPA.contains(hash)) {
                     pw.println("JOIN_CH" + hash + "," + "JOIN_PA" + hash);

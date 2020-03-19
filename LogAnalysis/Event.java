@@ -4,13 +4,18 @@ public class Event {
     private int hash;
     private int pid;
     private String className;
+    private String methodName;
     private int line;
 
 
-    public Event(EventType type, int hash, int tid) {
+    public Event(EventType type, int hash, int tid, int pid, String className, String methodName, int line) {
         this.type = type;
         this.hash = hash;
         this.tid = tid;
+        this.pid = pid;
+        this.className = className;
+        this.methodName = methodName;
+        this.line = line;
     }
 
     public void setType(EventType type) {
@@ -66,20 +71,16 @@ public class Event {
         WRITE("WRITE"),
         SEND_SO("SEND_SO"),
         RECV_SO("RECV_SO"),
-        SEND_RPC("SEND_RPC"),
-        RECV_RPC("RECV_RPC"),
-        BEGIN_RPC("BEGIN_RPC"),
-        END_RPC("END_RPC"),
+        RPC_SEND_PA("RPC_SEND_PA"),
+        RPC_SEND_CH("RPC_SEND_CH"),
+        RPC_RECV_PA("RPC_RECV_PA"),
+        RPC_RECV_CH("RPC_RECV_CH"),
         FORK_PA("FORK_PA"),
         FORK_CH("FORK_CH"),
         JOIN_PA("JOIN_PA"),
         JOIN_CH("JOIN_CH"),
         LOCK("LOCK"),
         REL("REL"),
-        CREATE("CREATE_EV"),
-        BEGIN("BEGIN_EV"),
-        END("END_EV"),
-        INIT("Initial"),
         Udef("Undefined"),
         ;
 
@@ -104,7 +105,9 @@ public class Event {
             }
 
             // 一致する名前のenumが見当たらなかった場合
-            return EventType.Udef;
+            System.err.println("Not Found EventType...:" + str);
+            System.exit(1);
+            throw new IllegalArgumentException();
         }
 
     }

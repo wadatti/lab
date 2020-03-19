@@ -1,7 +1,11 @@
 public class Config {
     public static final String INPUT_DIR = "./input/";
     public static final String[] INPUT_FILES = {
-            "1.csv",
-            "2.csv",
+            "Master0.csv",
+            "Slave0.csv",
+            "Slave1.csv",
+            "Slave2.csv",
+            "Slave3.csv",
+            "Slave4.csv",
     };
 }
