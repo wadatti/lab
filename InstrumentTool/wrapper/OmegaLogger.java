@@ -1,6 +1,8 @@
 
 package wrapper;
 
+import sun.rmi.runtime.Log;
+
 import java.io.*;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -41,6 +43,7 @@ public class OmegaLogger {
         PrintWriter pw = new PrintWriter(sw);
         t.printStackTrace(pw);
         pw.flush();
+        LogOutPutFile("Omega Stack Trace");
         LogOutPutFile(sw.toString());
     }
 }

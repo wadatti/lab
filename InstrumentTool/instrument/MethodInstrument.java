@@ -85,8 +85,9 @@ public class MethodInstrument {
         int line = m.getMethodInfo().getLineNumber(0);
         if (Modifier.isSynchronized(m.getModifiers())) {
             if (Modifier.isStatic(m.getModifiers())) return;
-            m.insertBefore(LogCode.out("LOCK", "0", c.getName(), m.getName(), line));
-            m.insertAfter(LogCode.out("REL", "0", c.getName(), m.getName(), line));
+            if (m.getName().equals("hashCode")) return;
+            m.insertBefore(LogCode.out("LOCK", "\"+$0.hashCode()+\"", c.getName(), m.getName(), line));
+            m.insertAfter(LogCode.out("REL", "\"+$0.hashCode()+\"", c.getName(), m.getName(), line));
             System.out.println(String.format("\t[OK]Trace: sync method %s", m.getName()));
         }
     }

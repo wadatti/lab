@@ -30,7 +30,7 @@ public class SynBlockInstrument {
 
     private void SynBlockLookup(MethodInfo minfo) {
         CodeAttribute ca = minfo.getCodeAttribute();
-        ca.setMaxStack(ca.getMaxStack() + 1);  //とりあえず1でもいけるっぽい？
+        ca.setMaxStack(ca.getMaxStack() + 1);
         CodeIterator iterator = ca.iterator();
 
         try {

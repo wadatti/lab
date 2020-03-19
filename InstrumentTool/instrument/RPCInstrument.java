@@ -205,8 +205,8 @@ public class RPCInstrument {
                             String hash = "\"+$" + argNum + ".traceID+\"";
                             CtMethod instrumentMethod = instrumentClass.getDeclaredMethod(method.getName());
                             instrumentMethod.insertBefore(LogCode.out("RPC_RECV_CH", hash, instrumentClass.getName(), method.getName(), line));
-                            instrumentMethod.insertBefore(LogCode.out("RPC_RECV_CH", hash, instrumentClass.getName(), method.getName(), line));
-                            instrumentMethod.insertAfter(LogCode.out("RPC_SEND_CH", hash, instrumentClass.getName(), method.getName(), line));
+//                            instrumentMethod.insertBefore(LogCode.out("RPC_RECV_CH", hash, instrumentClass.getName(), method.getName(), line)); ?????
+//                            instrumentMethod.insertAfter(LogCode.out("RPC_SEND_CH", hash, instrumentClass.getName(), method.getName(), line)); ?????
                             instrumentMethod.insertAfter(LogCode.out("RPC_SEND_CH", hash, instrumentClass.getName(), method.getName(), line));
                             System.out.println("\t[OK]Trace: RPC method " + method.getName() + " at " + instrumentClass.getName());
                         } else if (method.getLongName().substring(method.getLongName().indexOf("(")).contains("JobID")) {

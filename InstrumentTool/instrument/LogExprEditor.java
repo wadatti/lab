@@ -117,9 +117,11 @@ public class LogExprEditor extends ExprEditor {
 //                );
                 m.replace(
                         "byte[] metaID = java.nio.ByteBuffer.allocate(4).putInt(wrapper.TraceID.getID()).array();" +
+                                "byte[] metaLength = java.nio.ByteBuffer.allocate(4).putInt($3).array();" +
                                 LogCode.out("SEND_SO", "\"+java.nio.ByteBuffer.wrap(metaID).getInt()+\"", className, methodName, line) +
                                 LogCode.out("SEND_SO_size", "\"+$3+\"", className, methodName, line) +
-                                "$_ = $proceed(metaID,0,((int)metaID.length));" +
+                                "$_ = $proceed(metaID,0,(int)metaID.length);" +
+                                "$_ = $proceed(metaLength,0,(int)metaLength.length);" +
                                 "$_ = $proceed($$);"
                 );
             }
@@ -137,7 +139,7 @@ public class LogExprEditor extends ExprEditor {
 //            }
 
             // socket read
-//            if (methodName.equals("read") && currentCtClass.getName().contains("MapOutputCopier")) {
+            if (methodName.equals("read") && currentCtClass.getName().contains("MapOutputCopier")) {
 //                if (line == 1619) {
 //                    m.replace(
 ////                            "String omegaId = connection.getHeaderField(\"OmegaIDHeader\");" +
@@ -145,35 +147,67 @@ public class LogExprEditor extends ExprEditor {
 ////                                    LogCode.out("RECV_SO", "\"+omegaId+\"", className, methodName, line)
 //                    );
 //                } else {
-//                    m.replace(
-////                            LogCode.out("RECV_SO", "START", className, methodName, line) +
-//                            "try{$_ = $proceed($$);}catch(Throwable e){wrapper.OmegaLogger.LogOutPutFile(\"omegaError:\"+e.getMessage());}" +
-//                                    LogCode.byteOut("RECV_SO", "$1", className, methodName, line));
+                if (m.where().getName().contains("shuffleToDisk"))
+                    m.replace(
+                            "wrapper.OmegaLogger.LogOutPutFile(\"[TemporaryTrace] call read_Disk $1:\"+$1+\"  $2:\"+$2+\"  $3:\"+$3);" +
+                                    "byte[] metaID = new byte[4];" +
+                                    "byte[] metaLength = new byte[4];" +
+                                    "int metaRem = 4;" +
+                                    "while(metaRem > 0){$_ = $proceed(metaID,4 - metaRem,metaRem); metaRem -= $_; if($_==-1) break;}" +
+                                    "wrapper.OmegaLogger.LogOutPutFile(\"[TemporaryTrace] metaID_Disk $_:\"+$_);" +
+                                    "metaRem = 4;" +
+                                    "while(metaRem > 0){$_ = $proceed(metaLength,4 - metaRem,metaRem); metaRem -= $_; if($_==-1) break;}" +
+                                    "wrapper.OmegaLogger.LogOutPutFile(\"[TemporaryTrace] metaLength_Disk $_:\"+$_);" +
+                                    "$_ = 0;" +
+                                    "int omegaLen = java.lang.Math.min(java.nio.ByteBuffer.wrap(metaLength).getInt(),$3);" +
+                                    "int tempLen = omegaLen;" +
+                                    "wrapper.OmegaLogger.LogOutPutFile(\"[TemporaryTrace] omegaLen_Disk :\"+omegaLen+\"  $3:\"+$3);" +
+                                    "while(omegaLen > 0){" +
+                                    "$_ = $proceed($1,$2,omegaLen);" +
+                                    "if($_==-1) break;" +
+                                    "$2 += $_;" +
+                                    "omegaLen -= $_;" +
+                                    "wrapper.OmegaLogger.LogOutPutFile(\"[TemporaryTrace] call read_Disk $1:\"+$1+\"  $2:\"+$2+\"  omegaLen:\"+omegaLen);" +
+                                    LogCode.out("RECV_SO", "\"+java.nio.ByteBuffer.wrap(metaID).getInt()+\"", className, methodName, line) +
+                                    "} $_ = tempLen;"
+                    );
+
 //                }
-//            }
+            }
 
             if (currentCtClass.getName().contains("IFileInputStream")) {
                 if (methodClassName.equals("java.io.InputStream") && methodName.equals("read")) {
                     m.replace(
-                            "if(readFlag){" +
-                                    "byte[] metaID = java.nio.ByteBuffer.allocate(4).putInt(wrapper.TraceID.getID()).array();" +
-                                    "Throwable t = new Throwable();" +
+                            "Throwable t = new Throwable();" +
                                     "java.io.StringWriter sw = new java.io.StringWriter();" +
                                     "java.io.PrintWriter pw = new java.io.PrintWriter(sw);" +
                                     "pw.flush();" +
                                     "t.printStackTrace(pw);" +
-                                    "if(sw.toString().contains(\"shuffleInMemory\")){" +
-                                    "$_ = $proceed(metaID,0,4);" + LogCode.out("RECV_SO", "\"+java.nio.ByteBuffer.wrap(metaID).getInt()+\"", className, methodName, line) +
-                                    "}readFlag = false;" +
-                                    "$_ = $proceed($$);}else{$_ = $proceed($$);}"
+                                    "if(sw.toString().contains(\"shuffleInMemory\")){" + // if caller is shuffleInMemory...
+                                    "wrapper.OmegaLogger.LogOutPutFile(\"[TemporaryTrace] call read $1:\"+$1+\"  $2:\"+$2+\"  $3:\"+$3);" +
+                                    "int readNum = $3/wrapper.TraceID.MAX_BYTES_TO_READ;" +
+                                    "if($3%wrapper.TraceID.MAX_BYTES_TO_READ == 0){readNum--;}" +
+                                    "int tempLen = $3;" +
+                                    "for(int i = 0; i <= readNum; i++){" +
+                                    "byte[] metaID = new byte[4];" +
+                                    "byte[] metaLength = new byte[4];" +
+                                    "int metaRem = 4;" +
+                                    "while(metaRem > 0){$_ = $proceed(metaID,4 - metaRem,metaRem); metaRem -= $_;}" +
+                                    "wrapper.OmegaLogger.LogOutPutFile(\"[TemporaryTrace] metaID$_:\"+$_);" +
+                                    "metaRem = 4;" +
+                                    "while(metaRem > 0){$_ = $proceed(metaLength,4 - metaRem,metaRem); metaRem -= $_;}" +
+                                    "wrapper.OmegaLogger.LogOutPutFile(\"[TemporaryTrace] metaLength$_:\"+$_);" +
+                                    "$_ = 0;" +
+                                    "int omegaLen = java.lang.Math.min(java.nio.ByteBuffer.wrap(metaLength).getInt(),$3);" +
+                                    "$3 -= omegaLen;" +
+                                    "wrapper.OmegaLogger.LogOutPutFile(\"[TemporaryTrace] omegaLen:\"+omegaLen+\"  $3:\"+$3);" +
+                                    "while(omegaLen > 0){" +
+                                    "$_ = $proceed($1,$2,omegaLen);" +
+                                    "$2 += $_;" +
+                                    "omegaLen -= $_;" +
+                                    LogCode.out("RECV_SO", "\"+java.nio.ByteBuffer.wrap(metaID).getInt()+\"", className, methodName, line) +
+                                    "}} $_ = tempLen; }else{$_ = $proceed($$);}"
                     );
-                }
-
-                if (methodName.contains("readFully")) {
-                    m.replace("$proceed($$);" +
-                            LogCode.byteOut("OmegaCheck", "$2", className, methodName, line) +
-                            "Throwable th = new Throwable();" +
-                            "wrapper.OmegaLogger.printStackTrace(th);");
                 }
             }
 
@@ -245,28 +279,28 @@ public class LogExprEditor extends ExprEditor {
             }
 
             // wait / notify
-            if (longName.contains("java.lang.Object.notify()")) {
-                String hash_tmp = "\"+$_.hashCode()+\"";
-                m.replace
-                        (
-                                LogCode.out("NOTIFY", "\"+$0.hashCode()+\"", className, methodName, line) +
-                                        "$_ = $proceed($$);"
-                        );
-            }
-            if (longName.contains("java.lang.Object.notifyAll()")) {
-                String hash_tmp = "\"+$_.hashCode()+\"";
-                m.replace
-                        (
-                                LogCode.out("NOTIFYALL", "\"+$0.hashCode()+\"", className, methodName, line) +
-                                        "$_ = $proceed($$);"
-                        );
-            }
-            if (longName.contains("java.lang.Object.wait()")) {
-                m.replace(
-                        "$_ = $proceed($$);" +
-                                LogCode.out("WAITEXIT", "\"+$0.hashCode()+\"", className, methodName, line)
-                );
-            }
+//            if (longName.contains("java.lang.Object.notify()")) {
+//                String hash_tmp = "\"+$_.hashCode()+\"";
+//                m.replace
+//                        (
+//                                LogCode.out("NOTIFY", "\"+$0.hashCode()+\"", className, methodName, line) +
+//                                        "$_ = $proceed($$);"
+//                        );
+//            }
+//            if (longName.contains("java.lang.Object.notifyAll()")) {
+//                String hash_tmp = "\"+$_.hashCode()+\"";
+//                m.replace
+//                        (
+//                                LogCode.out("NOTIFYALL", "\"+$0.hashCode()+\"", className, methodName, line) +
+//                                        "$_ = $proceed($$);"
+//                        );
+//            }
+//            if (longName.contains("java.lang.Object.wait()")) {
+//                m.replace(
+//                        "$_ = $proceed($$);" +
+//                                LogCode.out("WAITEXIT", "\"+$0.hashCode()+\"", className, methodName, line)
+//                );
+//            }
         } catch (Exception e) {
             e.printStackTrace();
             System.out.println("[ERROR]" + currentCtClass.getName() + ":" + currentMethod.getName());

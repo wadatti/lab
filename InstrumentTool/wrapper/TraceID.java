@@ -13,6 +13,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public class TraceID {
     private static AtomicInteger id = new AtomicInteger(0);
+    public static final int MAX_BYTES_TO_READ = 64 * 1024;
 
 
     public static synchronized int getID() {
