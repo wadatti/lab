@@ -1,20 +1,14 @@
 import com.sun.org.apache.xerces.internal.impl.xpath.regex.Match;
 import org.omg.PortableInterceptor.SYSTEM_EXCEPTION;
 
-import java.io.BufferedReader;
-import java.io.FileNotFoundException;
-import java.io.FileReader;
-import java.io.IOException;
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.StringTokenizer;
+import java.io.*;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class LogParser {
-    public static HashMap<Integer, LinkedList<Event>> convertLog(String dir, String file) throws IOException {
-        HashMap<Integer, LinkedList<Event>> map = new HashMap<>();
+    public static HashMap<Integer, ArrayList<Event>> convertLog(String dir, String file) throws IOException {
+        HashMap<Integer, ArrayList<Event>> map = new HashMap<>();
         String regex = "([a-zA-Z]+)([0-9]+).csv";
         Pattern p = Pattern.compile(regex);
         Matcher m = p.matcher(file);
@@ -41,12 +35,14 @@ public class LogParser {
             int lineNum = Integer.parseInt(st.nextToken());
             if (st.hasMoreTokens()) {
                 System.out.println(st.nextToken());
+                throw new IllegalArgumentException();
             }
 
 
             if (hash == 0) {
-                System.err.println("hash code is 0!");
-                throw new IllegalArgumentException();
+//                System.err.println("hash code is 0!");
+//                throw new IllegalArgumentException();
+                continue;
             }
 
 
@@ -55,17 +51,15 @@ public class LogParser {
             }
             Event event = new Event(type, hash, tid, pid, className, methodName, lineNum);
 
-            LinkedList<Event> list;
+            ArrayList<Event> list;
             if (map.containsKey(tid)) {
                 list = map.get(tid);
             } else {
-                list = new LinkedList<>();
+                list = new ArrayList<>();
                 map.put(tid, list);
             }
             list.add(event);
         }
-
-
         return map;
     }
 }

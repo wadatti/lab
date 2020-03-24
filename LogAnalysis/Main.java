@@ -3,17 +3,23 @@ import java.util.*;
 
 
 public class Main {
-    public static Map<Integer, HashMap<Integer, LinkedList<Event>>> eventMap = new HashMap<>();
-    public static Set<Integer> sendRPCs = new HashSet<>();
-    public static Set<Integer> beginRPCs = new HashSet<>();
-    public static Set<Integer> endRPCs = new HashSet<>();
-    public static Set<Integer> recvRPCs = new HashSet<>();
-    public static Set<Integer> forkPA = new HashSet<>();
-    public static Set<Integer> forkCH = new HashSet<>();
-    public static Set<Integer> joinPA = new HashSet<>();
-    public static Set<Integer> joinCH = new HashSet<>();
-
     public static void main(String[] args) {
+        Map<Integer, HashMap<Integer, ArrayList<Event>>> eventMap = new HashMap<>();
+        Set<Integer> read = new HashSet<>();
+        Set<Integer> write = new HashSet<>();
+        Set<Integer> send_so = new HashSet<>();
+        Set<Integer> recv_so = new HashSet<>();
+        Set<Integer> rpc_send_pa = new HashSet<>();
+        Set<Integer> rpc_send_ch = new HashSet<>();
+        Set<Integer> rpc_recv_pa = new HashSet<>();
+        Set<Integer> rpc_recv_ch = new HashSet<>();
+        Set<Integer> fork_pa = new HashSet<>();
+        Set<Integer> fork_ch = new HashSet<>();
+        Set<Integer> join_pa = new HashSet<>();
+        Set<Integer> join_ch = new HashSet<>();
+        Set<Integer> lock = new HashSet<>();
+        Set<Integer> rel = new HashSet<>();
+
         int file_num = 0;
         File file = new File("output/log.csv");
         try (FileWriter fw = new FileWriter(file);
@@ -23,35 +29,66 @@ public class Main {
             for (String logFile : Config.INPUT_FILES) {
                 file_num++;
 
-                HashMap<Integer, LinkedList<Event>> map = LogParser.convertLog(Config.INPUT_DIR, logFile);
+                HashMap<Integer, ArrayList<Event>> map = LogParser.convertLog(Config.INPUT_DIR, logFile);
                 eventMap.put(file_num, map);
 
-                for (Map.Entry<Integer, LinkedList<Event>> entry : map.entrySet()) {
-                    LinkedList<Event> eventList = entry.getValue();
+                for (Map.Entry<Integer, ArrayList<Event>> entry : map.entrySet()) {
+                    ArrayList<Event> eventList = entry.getValue();
                     for (int i = 0; i < eventList.size(); i++) {
                         String eventName = eventList.get(i).getType().toString();
                         int eventHash = eventList.get(i).getHash();
 
-                        if (eventName.equals("SEND_RPC")) {
-                            sendRPCs.add(eventHash);
-                        } else if (eventName.equals("BEGIN_RPC")) {
-                            beginRPCs.add(eventHash);
-                        } else if (eventName.equals("END_RPC")) {
-                            endRPCs.add(eventHash);
-                        } else if (eventName.equals("RECV_RPC")) {
-                            recvRPCs.add(eventHash);
-                        } else if (eventName.equals("FORK_PA")) {
-                            forkPA.add(eventHash);
-                        } else if (eventName.equals("FORK_CH")) {
-                            forkCH.add(eventHash);
-                        } else if (eventName.equals("JOIN_PA")) {
-                            joinPA.add(eventHash);
-                        } else if (eventName.equals("JOIN_CH")) {
-                            joinCH.add(eventHash);
+                        switch (eventName) {
+                            case "READ":
+                                read.add(eventHash);
+                                break;
+                            case "WRITE":
+                                write.add(eventHash);
+                                break;
+                            case "SEND_SO":
+                                send_so.add(eventHash);
+                                break;
+                            case "RECV_SO":
+                                recv_so.add(eventHash);
+                                break;
+                            case "RPC_SEND_PA":
+                                rpc_send_pa.add(eventHash);
+                                break;
+                            case "RPC_SEND_CH":
+                                rpc_send_ch.add(eventHash);
+                                break;
+                            case "RPC_RECV_PA":
+                                rpc_recv_pa.add(eventHash);
+                                break;
+                            case "RPC_RECV_CH":
+                                rpc_recv_ch.add(eventHash);
+                                break;
+                            case "FORK_PA":
+                                fork_pa.add(eventHash);
+                                break;
+                            case "FORK_CH":
+                                fork_ch.add(eventHash);
+                                break;
+                            case "JOIN_PA":
+                                join_pa.add(eventHash);
+                                break;
+                            case "JOIN_CH":
+                                join_ch.add(eventHash);
+                                break;
+                            case "LOCK":
+                                lock.add(eventHash);
+                                break;
+                            case "REL":
+                                rel.add(eventHash);
+                                break;
+                            default:
+                                throw new IllegalArgumentException("Not defined EventType: " + eventName);
                         }
 
+                        // ￿Last Event is unnecessary
                         if (i == eventList.size() - 1)
                             continue;
+                        // Omit redundant Event
                         if (eventName.equals(eventList.get(i + 1).getType().toString()) && eventHash == eventList.get(i + 1).getHash())
                             continue;
 
@@ -63,46 +100,27 @@ public class Main {
 
             }
 
+            checkEvent(send_so, recv_so, "SEND_SO", "RECV_SO", pw);
+            checkEvent(rpc_send_pa, rpc_recv_ch, "RPC_SEND_PA", "RPC_RECV_CH", pw);
+            checkEvent(rpc_send_ch, rpc_recv_pa, "RPC_SEND_CH", "RPC_RECV_PA", pw);
+            checkEvent(fork_pa, fork_ch, "FORK_PA", "FORK_CH", pw);
+            checkEvent(join_ch, join_pa, "JOIN_CH", "JOIN_PA", pw);
+            checkEvent(lock, rel, "LOCK", "REL", pw);
 
-            for (Integer hash : sendRPCs) {
-                if (beginRPCs.contains(hash)) {
-                    pw.println("SEND_RPC" + hash + "," + "BEGIN_RPC" + hash);
-                } else {
-                    System.err.println("SEND_RPC" + hash);
-//                    System.exit(1);
-                }
-            }
-
-            for (Integer hash : endRPCs) {
-                if (recvRPCs.contains(hash)) {
-                    pw.println("END_RPC" + hash + "," + "RECV_RPC" + hash);
-                } else {
-                    System.err.println("END_RPC" + hash);
-//                    System.exit(1);
-                }
-            }
-
-            for (Integer hash : forkPA) {
-                if (forkCH.contains(hash)) {
-                    pw.println("FORK_PA" + hash + "," + "FORK_CH" + hash);
-                } else {
-                    System.err.println("FORK_PA" + hash);
-//                    System.exit(1);
-                }
-            }
-
-            //必ずしもJOIN＿CHに対してFORK＿PAがあるとは限らない
-            for (Integer hash : joinCH) {
-                if (joinPA.contains(hash)) {
-                    pw.println("JOIN_CH" + hash + "," + "JOIN_PA" + hash);
-                } else {
-                    System.err.println("JOIN_CH" + hash);
-//                    System.exit(1);
-                }
-            }
-
+            System.out.println("end");
         } catch (IOException e) {
             e.printStackTrace();
+        }
+    }
+
+    private static void checkEvent(Set<Integer> startEvents, Set<Integer> endEvents, String startEventName, String endEventName, PrintWriter pw) {
+        for (Integer hash : startEvents) {
+            if (endEvents.contains(hash)) {
+                pw.println(startEventName + hash + "," + endEventName + hash);
+            } else {
+                System.err.println(startEventName + hash);
+//                System.exit(1);
+            }
         }
     }
 }

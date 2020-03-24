@@ -95,21 +95,16 @@ public class Event {
             return text;
         }
 
-
         public static EventType getEnum(String str) {
-
             for (EventType type : EventType.values()) {
                 if (str.equals(type.toString())) {
                     return type;
                 }
             }
 
-            // 一致する名前のenumが見当たらなかった場合
             System.err.println("Not Found EventType...:" + str);
             System.exit(1);
             throw new IllegalArgumentException();
         }
-
     }
-
 }
