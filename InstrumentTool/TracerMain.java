@@ -77,34 +77,25 @@ public class TracerMain {
 
 
         // start instrument
-//        for (CtClass instrumentClass : targetClass) {
-//            if (instrumentClass.isInterface() || Modifier.isAbstract(instrumentClass.getModifiers()) || instrumentClass.getName().contains("$")) {
-//                continue;
-//            }
-//            boolean flag = false;
-//            for (CtField field : instrumentClass.getDeclaredFields()) {
-//                field.getName().contains("LOG");
-//                flag = true;
-//            }
-//            if (flag) {
-//                continue;
-//            }
-//
-//            try {
-//                CtClass logClass = classPool.get("org.apache.commons.logging.Log");
-//                CtClass logFac = classPool.get("org.apache.commons.logging.LogFactory");
-//                CtField logger = new CtField(logClass, "LOG", instrumentClass);
-//                logger.setModifiers(Modifier.PUBLIC);
-//                logger.setModifiers(Modifier.STATIC);
-//                String[] init = {"this.class"};
-//
-//                instrumentClass.addField(logger, CtField.Initializer.byExpr("org.apache.commons.logging.LogFactory.getLog(\"this\")"));
-//            } catch (CannotCompileException | NotFoundException e) {
-//                e.printStackTrace();
-//                System.out.println(instrumentClass.getName());
-//                System.exit(1);
-//            }
-//        }
+        for (CtClass instrumentClass : targetClass) {
+            if (instrumentClass.isInterface()) {
+                continue;
+            }
+            try {
+                CtField hashCodeId = new CtField(CtClass.intType, "hashCodeId", instrumentClass);
+                hashCodeId.setModifiers(Modifier.PRIVATE);
+                instrumentClass.addField(hashCodeId, "0");
+                CtField blockId = new CtField(CtClass.intType, "blockId", instrumentClass);
+                blockId.setModifiers(Modifier.PRIVATE + Modifier.STATIC);
+                instrumentClass.addField(blockId, "0");
+                for (CtConstructor constructor : instrumentClass.getDeclaredConstructors()) {
+                    constructor.insertBefore("this.hashCodeId = wrapper.TraceID.getID();");
+                }
+            } catch (CannotCompileException e) {
+                e.printStackTrace();
+                System.exit(1);
+            }
+        }
 
 
         try {

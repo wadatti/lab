@@ -1,8 +1,6 @@
 
 package wrapper;
 
-import sun.rmi.runtime.Log;
-
 import java.io.*;
 import java.net.InetAddress;
 import java.net.UnknownHostException;

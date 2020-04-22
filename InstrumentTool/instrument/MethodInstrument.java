@@ -25,35 +25,11 @@ public class MethodInstrument {
                 threadRunInst(m);
                 SynMethodInst(m);
             }
-//            if (c.getName().contains("IFileInputStream"))
-//                iFileInputStreamInstrument();
-//            if (c.getName().contains("ReduceTask"))
-//                reduceTaskInstrument();
         } catch (CannotCompileException | NotFoundException e) {
             e.printStackTrace();
             System.exit(1);
         }
     }
-
-    public void iFileInputStreamInstrument() throws CannotCompileException {
-        for (CtConstructor constructor : c.getDeclaredConstructors()) {
-            constructor.insertBeforeBody("$2 -= 4L;");
-        }
-    }
-
-    public void reduceTaskInstrument() throws CannotCompileException {
-        for (CtMethod method : c.getDeclaredMethods()) {
-            if (method.getName().contains("shuffleInMemory")) {
-                method.insertAfter(
-                        "int i = $_.data.length - 4; byte[] temporary = new byte[i];" +
-                                "for(i=4;i<$_.data.length;i++){temporary[i-4]=$_.data[i];}" +
-                                "$_.data = temporary;"
-                );
-            }
-        }
-    }
-
-//    public static void do
 
     // children fork join
     public void threadRunInst(CtMethod m) throws CannotCompileException, NotFoundException {
@@ -85,9 +61,8 @@ public class MethodInstrument {
         int line = m.getMethodInfo().getLineNumber(0);
         if (Modifier.isSynchronized(m.getModifiers())) {
             if (Modifier.isStatic(m.getModifiers())) return;
-            if (m.getName().equals("hashCode")) return;
-            m.insertBefore(LogCode.out("LOCK", "\"+$0.hashCode()+\"", c.getName(), m.getName(), line));
-            m.insertAfter(LogCode.out("REL", "\"+$0.hashCode()+\"", c.getName(), m.getName(), line));
+            m.insertBefore("hashCodeId=TraceID.getID();" + LogCode.out("LOCK", "\"+hashCodeId+\"", c.getName(), m.getName(), line));
+            m.insertAfter(LogCode.out("REL", "\"+hashCodeId+\"", c.getName(), m.getName(), line));
             System.out.println(String.format("\t[OK]Trace: sync method %s", m.getName()));
         }
     }

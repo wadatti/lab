@@ -19,7 +19,7 @@ public class TraceID {
     public static synchronized int getID() {
         if (id.get() == 0) {
             try {
-                MessageDigest digest = MessageDigest.getInstance("SHA-1");
+                MessageDigest digest = MessageDigest.getInstance("SHA-256");
                 Random rand = new Random(System.currentTimeMillis());
                 id.set(ByteBuffer.wrap(digest.digest(InetAddress.getLocalHost().getHostName().getBytes())).getInt() - rand.nextInt());
             } catch (UnknownHostException | NoSuchAlgorithmException e) {

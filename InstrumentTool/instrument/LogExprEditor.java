@@ -93,14 +93,15 @@ public class LogExprEditor extends ExprEditor {
 
             // synchronized block
             if (m.getClassName().equals("wrapper.SyncBlock") && m.getMethodName().equals("begin")) {
-                String hash_tmp = "\"+$1.hashCode()+\"";
-                m.replace(LogCode.out("LOCK", hash_tmp, className, methodName, line));
+                String hash_tmp = "\"+blockId+\"";
+                m.replace("blockId=TraceID.getID();" +
+                        LogCode.out("LOCK", hash_tmp, className, methodName, line));
                 System.out.println("\t[OK]Trace: synchronized Block start at " + className);
                 return;
             }
 
             if (m.getClassName().equals("wrapper.SyncBlock") && m.getMethodName().equals("end")) {
-                String hash_tmp = "\"+$1.hashCode()+\"";
+                String hash_tmp = "\"+blockId+\"";
                 m.replace(LogCode.out("REL", hash_tmp, className, methodName, line));
                 System.out.println("\t[OK]Trace: synchronized Block start at " + className);
                 return;
@@ -119,7 +120,6 @@ public class LogExprEditor extends ExprEditor {
                         "byte[] metaID = java.nio.ByteBuffer.allocate(4).putInt(wrapper.TraceID.getID()).array();" +
                                 "byte[] metaLength = java.nio.ByteBuffer.allocate(4).putInt($3).array();" +
                                 LogCode.out("SEND_SO", "\"+java.nio.ByteBuffer.wrap(metaID).getInt()+\"", className, methodName, line) +
-                                LogCode.out("SEND_SO_size", "\"+$3+\"", className, methodName, line) +
                                 "$_ = $proceed(metaID,0,(int)metaID.length);" +
                                 "$_ = $proceed(metaLength,0,(int)metaLength.length);" +
                                 "$_ = $proceed($$);"
@@ -211,7 +211,6 @@ public class LogExprEditor extends ExprEditor {
                 }
             }
 
-
             if (longName.contains("Stream.write")) {
                 String hash_tmp = "\"+$1.TraceObjectID+\"";
                 if (longName.contains("Object")) {
@@ -233,7 +232,6 @@ public class LogExprEditor extends ExprEditor {
                     m.replace(
                             "$_ = $proceed($$);" +
                                     LogCode.out("RECV_SO", hash_tmp, className, methodName, line)
-
                     );
                 } else {
                     return;
