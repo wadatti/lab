@@ -27,6 +27,7 @@ public class MethodInstrument {
             }
         } catch (CannotCompileException | NotFoundException e) {
             e.printStackTrace();
+            System.out.println(c.getName());
             System.exit(1);
         }
     }
@@ -61,8 +62,9 @@ public class MethodInstrument {
         int line = m.getMethodInfo().getLineNumber(0);
         if (Modifier.isSynchronized(m.getModifiers())) {
             if (Modifier.isStatic(m.getModifiers())) return;
-            m.insertBefore("hashCodeId=TraceID.getID();" + LogCode.out("LOCK", "\"+hashCodeId+\"", c.getName(), m.getName(), line));
-            m.insertAfter(LogCode.out("REL", "\"+hashCodeId+\"", c.getName(), m.getName(), line));
+            m.addLocalVariable("synId", CtClass.intType);
+            m.insertBefore("synId=TraceID.getID();" + LogCode.out("LOCK", "\"+synId+\"", c.getName(), m.getName(), line));
+            m.insertAfter(LogCode.out("REL", "\"+synId+\"", c.getName(), m.getName(), line));
             System.out.println(String.format("\t[OK]Trace: sync method %s", m.getName()));
         }
     }

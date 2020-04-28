@@ -19,6 +19,7 @@ public class LogExprEditor extends ExprEditor {
     private CtClass currentCtClass;
     private CtMethod currentMethod;
     private String longName;
+    int line;
 
 
     public LogExprEditor(CtClass c, ClassPool cpool) {
@@ -27,31 +28,40 @@ public class LogExprEditor extends ExprEditor {
     }
 
     // read write instrument
-//    @Override
-//    public void edit(FieldAccess f) {
-//        try {
-//            String className = f.getClassName();
-//            String fieldName = f.getFieldName();
-//            CtClass type = f.getField().getType();
-//            int line = f.getLineNumber();
-//            String hash = "0";
-//
-//
-//            if (f.isWriter()) {
-//                f.replace(LogCode.out("WRITE", hash, className + "." + fieldName, line) +
-//                        "$proceed($$);"
-//                );
-//            }
-//            if (f.isReader()) {
-//                f.replace(LogCode.out("READ", hash, className + "." + fieldName, line) +
-//                        "$_ = $proceed();"
-//                );
-//            }
-//        } catch (NotFoundException | CannotCompileException e) {
-//            e.printStackTrace();
-//            System.exit(1);
-//        }
-//    }
+    @Override
+    public void edit(FieldAccess f) {
+        try {
+            String className = f.getClassName();
+            String fieldName = f.getFieldName();
+            CtClass type = f.getField().getType();
+            longName = type.getName();
+            line = f.getLineNumber();
+//            String hash = "\"+" + fieldName + ".hashCode()+\"";
+
+
+            if (!f.isStatic() && !type.isPrimitive() && !type.isEnum()) {
+                if (f.isWriter()) {
+                    String hash = "\"+$1.hashCode()+\"";
+                    f.replace(LogCode.out("WRITE", hash, className, fieldName, line) +
+                            "$proceed($$);"
+                    );
+                }
+                if (f.isReader()) {
+                    String hash = "\"+$_.hashCode()+\"";
+                    f.replace(LogCode.out("READ", hash, className, fieldName, line) +
+                            "$_ = $proceed();"
+                    );
+                }
+            }
+        } catch (NotFoundException | CannotCompileException e) {
+            e.printStackTrace();
+            System.out.println(f.getClassName());
+            System.out.println(f.getFieldName());
+            System.out.println(line);
+            System.out.println(longName);
+            System.exit(1);
+        }
+    }
 
     // parent fork join and Socket, Executor Service instrument
     @Override
@@ -59,7 +69,7 @@ public class LogExprEditor extends ExprEditor {
         String methodName = m.getMethodName();
         String methodClassName = m.getClassName();
         String className = currentCtClass.getName();
-        int line = m.getLineNumber();
+        line = m.getLineNumber();
 
         try {
             CtMethod mm = m.getMethod();
@@ -126,27 +136,8 @@ public class LogExprEditor extends ExprEditor {
                 );
             }
 
-//            if (methodName.equals("setHeader")) {
-//                m.replace(
-//                        "if(org.apache.hadoop.mapred.MRConstants.RAW_MAP_OUTPUT_LENGTH.equals(" + "$1" + ")){" +
-//                                "$proceed($1,String.valueOf(Integer.valueOf($2)+4)); " +
-//                                "wrapper.OmegaLogger.LogOutPutFile(\"[TemporaryTrace]RECV_SO RAW_MAP_OUTPUT_LENGTH  \"+$2);}else if(org.apache.hadoop.mapred.MRConstants.MAP_OUTPUT_LENGTH.equals(" + "$1" + ")){" +
-//                                "$proceed($1,String.valueOf(Integer.valueOf($2)+4));" +
-//                                "wrapper.OmegaLogger.LogOutPutFile(\"[TemporaryTrace]RECV_SO MAP_OUTPUT_LENGTH  \"+$2);} else{" +
-//                                "$proceed($$);}"
-//                );
-//
-//            }
-
             // socket read
             if (methodName.equals("read") && currentCtClass.getName().contains("MapOutputCopier")) {
-//                if (line == 1619) {
-//                    m.replace(
-////                            "String omegaId = connection.getHeaderField(\"OmegaIDHeader\");" +
-//                            "$_ = $proceed($$);"
-////                                    LogCode.out("RECV_SO", "\"+omegaId+\"", className, methodName, line)
-//                    );
-//                } else {
                 if (m.where().getName().contains("shuffleToDisk"))
                     m.replace(
                             "wrapper.OmegaLogger.LogOutPutFile(\"[TemporaryTrace] call read_Disk $1:\"+$1+\"  $2:\"+$2+\"  $3:\"+$3);" +
@@ -171,8 +162,6 @@ public class LogExprEditor extends ExprEditor {
                                     LogCode.out("RECV_SO", "\"+java.nio.ByteBuffer.wrap(metaID).getInt()+\"", className, methodName, line) +
                                     "} $_ = tempLen;"
                     );
-
-//                }
             }
 
             if (currentCtClass.getName().contains("IFileInputStream")) {
