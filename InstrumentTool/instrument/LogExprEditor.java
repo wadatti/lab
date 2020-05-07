@@ -28,40 +28,40 @@ public class LogExprEditor extends ExprEditor {
     }
 
     // read write instrument
-    @Override
-    public void edit(FieldAccess f) {
-        try {
-            String className = f.getClassName();
-            String fieldName = f.getFieldName();
-            CtClass type = f.getField().getType();
-            longName = type.getName();
-            line = f.getLineNumber();
-//            String hash = "\"+" + fieldName + ".hashCode()+\"";
-
-
-            if (!f.isStatic() && !type.isPrimitive() && !type.isEnum()) {
-                if (f.isWriter()) {
-                    String hash = "\"+$1.hashCode()+\"";
-                    f.replace(LogCode.out("WRITE", hash, className, fieldName, line) +
-                            "$proceed($$);"
-                    );
-                }
-                if (f.isReader()) {
-                    String hash = "\"+$_.hashCode()+\"";
-                    f.replace(LogCode.out("READ", hash, className, fieldName, line) +
-                            "$_ = $proceed();"
-                    );
-                }
-            }
-        } catch (NotFoundException | CannotCompileException e) {
-            e.printStackTrace();
-            System.out.println(f.getClassName());
-            System.out.println(f.getFieldName());
-            System.out.println(line);
-            System.out.println(longName);
-            System.exit(1);
-        }
-    }
+//    @Override
+//    public void edit(FieldAccess f) {
+//        try {
+//            String className = f.getClassName();
+//            String fieldName = f.getFieldName();
+//            CtClass type = f.getField().getType();
+//            longName = type.getName();
+//            line = f.getLineNumber();
+////            String hash = "\"+" + fieldName + ".hashCode()+\"";
+//
+//
+//            if (!f.isStatic() && !type.isPrimitive() && !type.isEnum()) {
+//                if (f.isWriter()) {
+//                    String hash = "\"+$0.hashCode()+\"";
+//                    f.replace(LogCode.out("WRITE", hash, className, fieldName, line) +
+//                            "$proceed($$);"
+//                    );
+//                }
+//                if (f.isReader()) {
+//                    String hash = "\"+$0.hashCode()+\"";
+//                    f.replace(LogCode.out("READ", hash, className, fieldName, line) +
+//                            "$_ = $proceed();"
+//                    );
+//                }
+//            }
+//        } catch (NotFoundException | CannotCompileException e) {
+//            e.printStackTrace();
+//            System.out.println(f.getClassName());
+//            System.out.println(f.getFieldName());
+//            System.out.println(line);
+//            System.out.println(longName);
+//            System.exit(1);
+//        }
+//    }
 
     // parent fork join and Socket, Executor Service instrument
     @Override
@@ -103,15 +103,15 @@ public class LogExprEditor extends ExprEditor {
 
             // synchronized block
             if (m.getClassName().equals("wrapper.SyncBlock") && m.getMethodName().equals("begin")) {
-                String hash_tmp = "\"+blockId+\"";
-                m.replace("blockId=TraceID.getID();" +
+                String hash_tmp = "\"+wrapper.TraceID.getObjectId($1)+\"";
+                m.replace("wrapper.TraceID.objectRegist($1);" +
                         LogCode.out("LOCK", hash_tmp, className, methodName, line));
                 System.out.println("\t[OK]Trace: synchronized Block start at " + className);
                 return;
             }
 
             if (m.getClassName().equals("wrapper.SyncBlock") && m.getMethodName().equals("end")) {
-                String hash_tmp = "\"+blockId+\"";
+                String hash_tmp = "\"+wrapper.TraceID.getObjectId($1)+\"";
                 m.replace(LogCode.out("REL", hash_tmp, className, methodName, line));
                 System.out.println("\t[OK]Trace: synchronized Block start at " + className);
                 return;

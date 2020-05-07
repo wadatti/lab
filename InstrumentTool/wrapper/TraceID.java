@@ -5,7 +5,9 @@ import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.Map;
 import java.util.Random;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -13,6 +15,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public class TraceID {
     private static AtomicInteger id = new AtomicInteger(0);
+    private static Map<Object, Integer> objectMap = new ConcurrentHashMap<>();
     public static final int MAX_BYTES_TO_READ = 64 * 1024;
 
 
@@ -28,5 +31,23 @@ public class TraceID {
             }
         }
         return id.incrementAndGet();
+    }
+
+    public static void objectRegist(Object o) {
+        int id = getID();
+        if (objectMap.containsKey(o))
+            return;
+        if (objectMap.containsValue(id))
+            OmegaLogger.LogOutPutFile("[TraceError] containsValue");
+        objectMap.put(o, id);
+    }
+
+    public static int getObjectId(Object o) {
+        Integer id = objectMap.get(o);
+        if (id == null) {
+            OmegaLogger.LogOutPutFile("[TraceError] nullId");
+            return 0;
+        }
+        return id.intValue();
     }
 }

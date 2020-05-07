@@ -43,6 +43,7 @@ public class SynBlockInstrument {
 //                    iterator.next();
                     iterator.insert(createMethodCall("LOCK", minfo));
                 } else if (iterator.byteAt(iterator.lookAhead()) == Opcode.MONITOREXIT) {
+                    iterator.insert(createByteCode(Opcode.DUP));
                     iterator.insert(createMethodCall("REL", minfo));
                 }
             }
@@ -68,7 +69,6 @@ public class SynBlockInstrument {
         if (op.equals("LOCK")) {
             instrumentCode.addInvokestatic("wrapper.SyncBlock", "begin", "(Ljava/lang/Object;)V");
         } else if (op.equals("REL")) {
-            instrumentCode.add(Opcode.DUP);
             instrumentCode.addInvokestatic("wrapper.SyncBlock", "end", "(Ljava/lang/Object;)V");
         }
 
