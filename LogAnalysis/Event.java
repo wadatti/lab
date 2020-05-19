@@ -1,21 +1,17 @@
 public class Event {
     private EventType type;
     private int tid;
+    private int traceId;
     private int hash;
     private int pid;
-    private String className;
-    private String methodName;
-    private int line;
 
 
-    public Event(EventType type, int hash, int tid, int pid, String className, String methodName, int line) {
+    public Event(EventType type, int hash, int traceId, int tid, int pid) {
         this.type = type;
         this.hash = hash;
+        this.traceId = traceId;
         this.tid = tid;
         this.pid = pid;
-        this.className = className;
-        this.methodName = methodName;
-        this.line = line;
     }
 
     public void setType(EventType type) {
@@ -33,15 +29,7 @@ public class Event {
     public void setPid(int pid) {
         this.pid = pid;
     }
-
-    public void setClassName(String className) {
-        this.className = className;
-    }
-
-    public void setLine(int line) {
-        this.line = line;
-    }
-
+    
     public EventType getType() {
         return type;
     }
@@ -54,16 +42,12 @@ public class Event {
         return hash;
     }
 
+    public int getTraceId() {
+        return traceId;
+    }
+
     public int getPid() {
         return pid;
-    }
-
-    public String getClassName() {
-        return className;
-    }
-
-    public int getLine() {
-        return line;
     }
 
     public enum EventType {
