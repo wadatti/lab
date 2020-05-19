@@ -82,15 +82,16 @@ public class TracerMain {
                 continue;
             }
             try {
-                CtField hashCodeId = new CtField(CtClass.intType, "hashCodeId", instrumentClass);
+                CtField hashCodeId = new CtField(CtClass.intType, "omegaId", instrumentClass);
                 hashCodeId.setModifiers(Modifier.PRIVATE);
                 instrumentClass.addField(hashCodeId, "0");
                 for (CtConstructor constructor : instrumentClass.getDeclaredConstructors()) {
-                    constructor.insertBefore("this.hashCodeId = wrapper.TraceID.getID();");
+                    constructor.insertBefore("this.omegaId = wrapper.TraceID.getID();");
                 }
                 CtField blockId = new CtField(CtClass.intType, "blockId", instrumentClass);
                 blockId.setModifiers(Modifier.PRIVATE + Modifier.STATIC);
                 instrumentClass.addField(blockId, "0");
+
             } catch (CannotCompileException e) {
                 e.printStackTrace();
                 System.exit(1);

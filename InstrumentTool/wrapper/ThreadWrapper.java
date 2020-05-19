@@ -57,6 +57,6 @@ public class ThreadWrapper extends Thread {
         if (this.task == null) {
             return ThreadWrapperID;
         }
-        return task.hashCode();
+        return System.identityHashCode(task);
     }
 }

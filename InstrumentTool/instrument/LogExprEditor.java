@@ -2,6 +2,7 @@ package instrument;
 
 import instrument.tool.LogCode;
 import javassist.*;
+import javassist.bytecode.Descriptor;
 import javassist.expr.*;
 
 
@@ -28,40 +29,49 @@ public class LogExprEditor extends ExprEditor {
     }
 
     // read write instrument
-//    @Override
-//    public void edit(FieldAccess f) {
-//        try {
-//            String className = f.getClassName();
-//            String fieldName = f.getFieldName();
-//            CtClass type = f.getField().getType();
-//            longName = type.getName();
-//            line = f.getLineNumber();
-////            String hash = "\"+" + fieldName + ".hashCode()+\"";
-//
-//
-//            if (!f.isStatic() && !type.isPrimitive() && !type.isEnum()) {
-//                if (f.isWriter()) {
-//                    String hash = "\"+$0.hashCode()+\"";
-//                    f.replace(LogCode.out("WRITE", hash, className, fieldName, line) +
-//                            "$proceed($$);"
-//                    );
-//                }
-//                if (f.isReader()) {
-//                    String hash = "\"+$0.hashCode()+\"";
-//                    f.replace(LogCode.out("READ", hash, className, fieldName, line) +
-//                            "$_ = $proceed();"
-//                    );
-//                }
-//            }
-//        } catch (NotFoundException | CannotCompileException e) {
-//            e.printStackTrace();
-//            System.out.println(f.getClassName());
-//            System.out.println(f.getFieldName());
-//            System.out.println(line);
-//            System.out.println(longName);
-//            System.exit(1);
-//        }
-//    }
+    @Override
+    public void edit(FieldAccess f) {
+        try {
+            String className = f.getClassName();
+            String fieldName = f.getFieldName();
+            CtClass type = f.getField().getType();
+            longName = type.getName();
+            line = f.getLineNumber();
+
+            if (className.startsWith("java."))
+                return;
+            try {
+                if (Modifier.isPrivate(f.getField().getModifiers()))
+                    return;
+                if (Modifier.isFinal(f.getField().getModifiers()))
+                    return;
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+
+            if (!f.isStatic() && !f.getFieldName().equals("this$0") && !f.getFieldName().startsWith("val$")) {
+                if (f.isWriter()) {
+                    String hash = "\"+System.identityHashCode($0)+\"";
+                    f.replace(LogCode.out("WRITE", hash, className, fieldName, line) +
+                            "$proceed($$);"
+                    );
+                }
+                if (f.isReader()) {
+                    String hash = "\"+System.identityHashCode($0)+\"";
+                    f.replace(LogCode.out("READ", hash, className, fieldName, line) +
+                            "$_ = $proceed();"
+                    );
+                }
+            }
+        } catch (NotFoundException | CannotCompileException e) {
+            e.printStackTrace();
+            System.out.println(f.getClassName());
+            System.out.println(f.getFieldName());
+            System.out.println(line);
+            System.out.println(longName);
+            System.exit(1);
+        }
+    }
 
     // parent fork join and Socket, Executor Service instrument
     @Override
@@ -103,15 +113,14 @@ public class LogExprEditor extends ExprEditor {
 
             // synchronized block
             if (m.getClassName().equals("wrapper.SyncBlock") && m.getMethodName().equals("begin")) {
-                String hash_tmp = "\"+wrapper.TraceID.getObjectId($1)+\"";
-                m.replace("wrapper.TraceID.objectRegist($1);" +
-                        LogCode.out("LOCK", hash_tmp, className, methodName, line));
+                String hash_tmp = "\"+System.identityHashCode($1)+\"";
+                m.replace(LogCode.out("LOCK", hash_tmp, className, methodName, line));
                 System.out.println("\t[OK]Trace: synchronized Block start at " + className);
                 return;
             }
 
             if (m.getClassName().equals("wrapper.SyncBlock") && m.getMethodName().equals("end")) {
-                String hash_tmp = "\"+wrapper.TraceID.getObjectId($1)+\"";
+                String hash_tmp = "\"+System.identityHashCode($1)+\"";
                 m.replace(LogCode.out("REL", hash_tmp, className, methodName, line));
                 System.out.println("\t[OK]Trace: synchronized Block start at " + className);
                 return;
@@ -241,7 +250,7 @@ public class LogExprEditor extends ExprEditor {
 				*/
 
                 m.replace
-                        (LogCode.out("FORK_PA", "\"+$1.hashCode()+\"", className, methodName, line) +
+                        (LogCode.out("FORK_PA", "\"+System.identityHashCode($1)+\"", className, methodName, line) +
                                 "$_ = $proceed($$);"
                         );
 
@@ -253,13 +262,13 @@ public class LogExprEditor extends ExprEditor {
                 m.replace
                         (
                                 "$_ = $proceed($$);" +
-                                        LogCode.out("LOCK", "\"+$0.hashCode()+\"", className, methodName, line)
+                                        LogCode.out("LOCK", "\"+System.identityHashCode($0)+\"", className, methodName, line)
                         );
                 System.out.println(String.format("\t[OK]Trace: ReentrantLock.lock() at %s", className));
             }
             if (longName.contains("java.util.concurrent.locks.ReentrantLock.unlock()")) {
                 m.replace
-                        (LogCode.out("REL", "\"+$0.hashCode()+\"", className, methodName, line) +
+                        (LogCode.out("REL", "\"+System.identityHashCode($0)+\"", className, methodName, line) +
                                 "$_ = $proceed($$);"
                         );
                 System.out.println(String.format("\t[OK]Trace: ReentrantLock.unlock() at %s", className));
@@ -292,6 +301,7 @@ public class LogExprEditor extends ExprEditor {
             e.printStackTrace();
             System.out.println("[ERROR]" + currentCtClass.getName() + ":" + currentMethod.getName());
             System.out.println(longName);
+            System.out.println(line);
             System.exit(1);
         }
 

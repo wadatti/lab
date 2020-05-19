@@ -5,7 +5,6 @@ import javassist.bytecode.*;
 
 public class SynBlockInstrument {
     private CtClass c;
-    private int blockNum = 0;
 
     public SynBlockInstrument(CtClass c) {
         this.c = c;
@@ -37,8 +36,6 @@ public class SynBlockInstrument {
         try {
             for (iterator.begin(); iterator.hasNext(); iterator.next()) {
                 if (iterator.byteAt(iterator.lookAhead()) == Opcode.MONITORENTER) {
-                    blockNum++;
-                    addTraceIdField(String.valueOf(blockNum));
                     iterator.insert(createByteCode(Opcode.DUP));
 //                    iterator.next();
                     iterator.insert(createMethodCall("LOCK", minfo));
@@ -47,7 +44,7 @@ public class SynBlockInstrument {
                     iterator.insert(createMethodCall("REL", minfo));
                 }
             }
-        } catch (BadBytecode | CannotCompileException badBytecode) {
+        } catch (BadBytecode badBytecode) {
             badBytecode.printStackTrace();
             System.exit(1);
         }
@@ -75,13 +72,6 @@ public class SynBlockInstrument {
         System.out.println("\t[OK]Trace: Synchronized Block " + minfo.getName() + ", " + c.getName());
 
         return instrumentCode.get();
-    }
-
-    private void addTraceIdField(String name) throws CannotCompileException {
-        String fieldName = "traceId" + name;
-        CtField traceId = new CtField(CtClass.intType, fieldName, c);
-        traceId.setModifiers(Modifier.PRIVATE);
-        c.addField(traceId, "0");
     }
 
     public CtClass getC() {
