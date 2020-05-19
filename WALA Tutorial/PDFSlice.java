@@ -1,4 +1,5 @@
 import com.ibm.wala.classLoader.Language;
+import com.ibm.wala.classLoader.ShrikeBTMethod;
 import com.ibm.wala.core.tests.callGraph.CallGraphTestUtil;
 import com.ibm.wala.examples.drivers.PDFSDG;
 import com.ibm.wala.examples.drivers.PDFTypeHierarchy;
@@ -9,7 +10,6 @@ import com.ibm.wala.ipa.callgraph.propagation.InstanceKey;
 import com.ibm.wala.ipa.callgraph.propagation.PointerAnalysis;
 import com.ibm.wala.ipa.callgraph.util.CallGraphSearchUtil;
 import com.ibm.wala.ipa.cha.ClassHierarchy;
-import com.ibm.wala.ipa.cha.ClassHierarchyException;
 import com.ibm.wala.ipa.cha.ClassHierarchyFactory;
 import com.ibm.wala.ipa.slicer.*;
 import com.ibm.wala.properties.WalaProperties;
@@ -68,7 +68,7 @@ public class PDFSlice {
             AnalysisScope scope = AnalysisScopeReader.makeJavaBinaryAnalysisScope("input/Hello.jar", exFile);
 
             ClassHierarchy cha = ClassHierarchyFactory.make(scope);
-            Iterable<Entrypoint> entrypoints = Util.makeMainEntrypoints(scope, cha, mainClass);
+            Iterable<Entrypoint> entrypoints = Util.makeMainEntrypoints(scope, cha);
             AnalysisOptions options = CallGraphTestUtil.makeAnalysisOptions(scope, entrypoints);
             CallGraphBuilder<InstanceKey> builder = Util.makeVanillaZeroOneCFABuilder(Language.JAVA, options, new AnalysisCacheImpl(), cha, scope);
             CallGraph cg = builder.makeCallGraph(options, null);
@@ -95,6 +95,24 @@ public class PDFSlice {
             Graph<Statement> g = pruneSDG(sdg, slice);
 
             sanityCheck(slice, g);
+
+            // From Slices to source line numbers
+            if (s.getKind() == Statement.Kind.NORMAL) { // ignore special kinds of statements
+                int bcIndex, instructionIndex = ((NormalStatement) s).getInstructionIndex();
+                try {
+                    bcIndex = ((ShrikeBTMethod) s.getNode().getMethod()).getBytecodeIndex(instructionIndex);
+                    try {
+                        int src_line_number = s.getNode().getMethod().getLineNumber(bcIndex);
+                        System.err.println("Source line number = " + src_line_number);
+                    } catch (Exception e) {
+                        System.err.println("Bytecode index no good");
+                        System.err.println(e.getMessage());
+                    }
+                } catch (Exception e) {
+                    System.err.println("it's probably not a BT method (e.g. it's a fakeroot method)");
+                    System.err.println(e.getMessage());
+                }
+            }
 
             Properties p = WalaExamplesProperties.loadProperties();
             p.putAll(WalaProperties.loadProperties());

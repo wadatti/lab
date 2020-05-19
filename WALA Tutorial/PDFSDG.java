@@ -17,7 +17,6 @@ import com.ibm.wala.util.graph.Graph;
 import com.ibm.wala.util.graph.GraphIntegrity;
 import com.ibm.wala.util.graph.GraphSlicer;
 import com.ibm.wala.util.io.CommandLine;
-import com.ibm.wala.util.io.FileProvider;
 import com.ibm.wala.viz.DotUtil;
 import com.ibm.wala.viz.NodeDecorator;
 import com.ibm.wala.viz.PDFViewUtil;
@@ -34,6 +33,7 @@ public class PDFSDG {
 
     public static Process run(String[] args) {
         Properties p = CommandLine.parse(args);
+        validateCommandLine(p);
         return run(p.getProperty("appJar"), p.getProperty("mainClass"), getDataDependenceOptions(p), getControlDependenceOptions(p));
     }
 
@@ -61,7 +61,7 @@ public class PDFSDG {
 
     public static Process run(String appJar, String mainClass, Slicer.DataDependenceOptions dOptions, Slicer.ControlDependenceOptions cOptions) {
         try {
-            AnalysisScope scope = AnalysisScopeReader.makeJavaBinaryAnalysisScope("input/Hello.jar", new File("Exclusions.txt"));
+            AnalysisScope scope = AnalysisScopeReader.makeJavaBinaryAnalysisScope(appJar, new File("Exclusions.txt"));
 
             ClassHierarchy cha = ClassHierarchyFactory.make(scope);
             Iterable<Entrypoint> entrypoints = Util.makeMainEntrypoints(scope, cha, mainClass);
@@ -78,14 +78,13 @@ public class PDFSDG {
             Properties p = WalaExamplesProperties.loadProperties();
             p.putAll(WalaProperties.loadProperties());
 
-            String pdfFile = p.getProperty(WalaProperties.OUTPUT_DIR) + File.separatorChar + "sdg.pdf";
-
+            String psFile = p.getProperty(WalaProperties.OUTPUT_DIR) + File.separatorChar + "sdg.pdf";
             String dotExe = "dot";
             Graph<Statement> g = pruneSDG(sdg);
-            DotUtil.dotify(g, makeNodeDecorator(), PDFTypeHierarchy.DOT_FILE, pdfFile, dotExe);
+            DotUtil.dotify(g, makeNodeDecorator(), PDFTypeHierarchy.DOT_FILE, psFile, dotExe);
 
             String gvExe = "open";
-            return PDFViewUtil.launchPDFView(pdfFile, gvExe);
+            return PDFViewUtil.launchPDFView(psFile, gvExe);
         } catch (IOException | CallGraphBuilderCancelException | GraphIntegrity.UnsoundGraphException | WalaException e) {
             e.printStackTrace();
             return null;
@@ -127,5 +126,14 @@ public class PDFSDG {
                     return s.toString();
             }
         };
+    }
+
+    static void validateCommandLine(Properties p) {
+        if (p.get("appJar") == null) {
+            throw new UnsupportedOperationException("expected command-line to include -appJar");
+        }
+        if (p.get("mainClass") == null) {
+            throw new UnsupportedOperationException("expected command-line to include -mainClass");
+        }
     }
 }
