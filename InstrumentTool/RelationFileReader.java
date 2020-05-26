@@ -3,7 +3,7 @@ import java.util.LinkedList;
 import java.util.List;
 
 /**
- * ターゲットJarファイルの関連jarファイル or ディレクトリを集めるクラス
+ * Collects jar files associated with the target jar file
  */
 public class RelationFileReader {
     private File[] files;

@@ -10,12 +10,10 @@ import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 
 public class TracerMain {
-
-
     public static void main(String[] args) {
-        String inputPath = "input/";
+        String inputPath = args[0] + "/";
         String outputPath = "output/";
-        String targetFileName = inputPath + args[0];
+        String targetFileName = inputPath + args[1];
         File inputDir = new File(inputPath);
         JarFile targetFile;
         Set<CtClass> targetClass = new HashSet<>();
@@ -25,10 +23,10 @@ public class TracerMain {
 
         classPool.importPackage("wrapper");
         try {
-            classPool.get("wrapper.ThreadWrapper").writeFile(outputPath);
-            classPool.get("wrapper.TraceID").writeFile(outputPath);
-            classPool.get("wrapper.OmegaLogger").writeFile(outputPath);
-            classPool.get("wrapper.OmegaObject").writeFile(outputPath);
+            File wrapperDir = new File("./src/wrapper/");
+            for (File file : Objects.requireNonNull(wrapperDir.listFiles())) {
+                classPool.get("wrapper." + file.getName().replace(".java", "")).writeFile(outputPath);
+            }
         } catch (CannotCompileException | IOException | NotFoundException e) {
             e.printStackTrace();
             System.exit(1);
@@ -46,7 +44,7 @@ public class TracerMain {
             }
         }
 
-        // I want to append target jar file to the end.
+        // I want to append the target jar file at the end.
         try {
             classPool.appendClassPath(targetFileName);
         } catch (NotFoundException e) {
@@ -94,6 +92,7 @@ public class TracerMain {
 
             } catch (CannotCompileException e) {
                 e.printStackTrace();
+                System.out.println(instrumentClass.getName());
                 System.exit(1);
             }
         }
@@ -123,12 +122,14 @@ public class TracerMain {
             System.exit(1);
         }
 
-        RPCInstrument rpcInstrument = new RPCInstrument(targetClass, classPool);
-        try {
-            rpcInstrument.instrument();
-        } catch (NotFoundException | CannotCompileException e) {
-            e.printStackTrace();
-            System.exit(1);
+        if (args[1].contains("hadoop")) {
+            RPCInstrument rpcInstrument = new RPCInstrument(targetClass, classPool);
+            try {
+                rpcInstrument.instrument();
+            } catch (NotFoundException | CannotCompileException e) {
+                e.printStackTrace();
+                System.exit(1);
+            }
         }
 
         // only method call instrument
@@ -145,30 +146,6 @@ public class TracerMain {
                 System.out.println(instrumentClass.getName());
                 System.exit(1);
             }
-        }
-
-        // tentative instrument for RPC relation class
-        try {
-            CtClass server = classPool.get("org.apache.hadoop.ipc.Server$Handler");
-            server.instrument(new ExprEditor() {
-                @Override
-                public void edit(MethodCall m) {
-                    try {
-                        if (m.getMethod().getName().contains("take")) {
-                            m.replace("$_ = $proceed();" +
-                                    "System.out.println(\"[RPC TRACE] \"+ $_.toString());");
-                            System.out.println("deketa");
-                        }
-                    } catch (NotFoundException | CannotCompileException e) {
-                        e.printStackTrace();
-                        System.exit(1);
-                    }
-                }
-            });
-            server.writeFile(outputPath);
-        } catch (NotFoundException | CannotCompileException | IOException e) {
-            e.printStackTrace();
-            System.exit(1);
         }
     }
 }

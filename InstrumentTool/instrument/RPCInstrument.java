@@ -46,6 +46,30 @@ public class RPCInstrument {
             e.printStackTrace();
             System.exit(1);
         }
+
+        // tentative instrument for RPC relation class
+        try {
+            CtClass server = cp.get("org.apache.hadoop.ipc.Server$Handler");
+            server.instrument(new ExprEditor() {
+                @Override
+                public void edit(MethodCall m) {
+                    try {
+                        if (m.getMethod().getName().contains("take")) {
+                            m.replace("$_ = $proceed();" +
+                                    "System.out.println(\"[RPC TRACE] \"+ $_.toString());");
+                            System.out.println("deketa");
+                        }
+                    } catch (NotFoundException | CannotCompileException e) {
+                        e.printStackTrace();
+                        System.exit(1);
+                    }
+                }
+            });
+            server.writeFile("output/");
+        } catch (NotFoundException | CannotCompileException | IOException e) {
+            e.printStackTrace();
+            System.exit(1);
+        }
     }
 
     private void addField() throws NotFoundException, CannotCompileException {
