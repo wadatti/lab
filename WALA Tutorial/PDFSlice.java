@@ -51,6 +51,7 @@ public class PDFSlice {
                 PDFSDG.getControlDependenceOptions(p));
     }
 
+
     public static boolean goBackward(Properties p) {
         return !p.getProperty("dir", "backward").equals("forward");
     }
