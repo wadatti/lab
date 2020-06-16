@@ -185,6 +185,7 @@ public class Bench {
     public static void main(String[] args) throws IOException {
         for (int i = 0; i < 1; i++) {
             try (final Writer w = new BufferedWriter(new FileWriter("report", false))) {
+                instrumenter = new OfflineInstrumenter();
                 args = instrumenter.parseStandardArgs(args);
                 if (args.length > 0) {
                     switch (args[0]) {
@@ -197,7 +198,6 @@ public class Bench {
                             break;
                     }
                 }
-                instrumenter = new OfflineInstrumenter();
                 instrumenter.setPassUnmodifiedClasses(true);
                 instrumenter.beginTraversal();
                 ClassInstrumenter ci;
