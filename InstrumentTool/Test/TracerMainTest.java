@@ -2,6 +2,7 @@ import javassist.CannotCompileException;
 import javassist.ClassPool;
 import javassist.CtClass;
 import javassist.NotFoundException;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -27,13 +28,13 @@ class TracerMainTest {
 
     static Stream<Arguments> targetJar() {
         return Stream.of(
-                Arguments.of((Object) new String[]{"TestInput", "LockSample.jar"})
+                Arguments.of((Object) new String[]{"TestResource/Input", "LockSample.jar"})
 //                Arguments.of((Object) new String[]{"input", "hadoop-0.20-mapreduce/hadoop-core-2.0.0-mr1-cdh4.0.0.jar"})
         );
     }
 
-    //    @AfterEach
-    void outputClean() {
+    @AfterEach
+    void outputTest() {
         ProcessBuilder rm = new ProcessBuilder("sh", "./script/CleanOutput.sh");
 
         rm.redirectErrorStream(true);
