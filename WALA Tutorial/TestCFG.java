@@ -1,6 +1,7 @@
 import com.ibm.wala.analysis.exceptionanalysis.ExceptionAnalysis;
 import com.ibm.wala.analysis.exceptionanalysis.ExceptionAnalysis2EdgeFilter;
 import com.ibm.wala.cfg.ControlFlowGraph;
+import com.ibm.wala.classLoader.IBytecodeMethod;
 import com.ibm.wala.classLoader.Language;
 import com.ibm.wala.examples.drivers.PDFTypeHierarchy;
 import com.ibm.wala.examples.properties.WalaExamplesProperties;
@@ -17,6 +18,8 @@ import com.ibm.wala.ipa.cfg.exceptionpruning.interprocedural.IgnoreExceptionsInt
 import com.ibm.wala.ipa.cha.ClassHierarchy;
 import com.ibm.wala.ipa.cha.ClassHierarchyFactory;
 import com.ibm.wala.properties.WalaProperties;
+import com.ibm.wala.shrikeCT.InvalidClassFileException;
+import com.ibm.wala.ssa.IR;
 import com.ibm.wala.ssa.ISSABasicBlock;
 import com.ibm.wala.ssa.SSACFG;
 import com.ibm.wala.ssa.SSAInstruction;
@@ -33,22 +36,20 @@ import com.ibm.wala.viz.PDFViewUtil;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.Iterator;
 import java.util.Properties;
 import java.util.function.Predicate;
 
 public class TestCFG {
 
     private static CombinedInterproceduralExceptionFilter<SSAInstruction> filter = new CombinedInterproceduralExceptionFilter<>();
-    ;
 
 
-    public static void main(String[] args) throws IOException, WalaException, CallGraphBuilderCancelException {
+    public static void main(String[] args) throws IOException, WalaException, CallGraphBuilderCancelException, InvalidClassFileException {
         Properties p = CommandLine.parse(args);
         buildPrunedCallGraph(p.getProperty("appJar"), (new FileProvider().getFile(p.getProperty("exclusionFile", "Exclusions.txt"))));
     }
 
-    public static void buildPrunedCallGraph(String appJar, File exclusionFile) throws IOException, WalaException, CallGraphBuilderCancelException {
+    public static void buildPrunedCallGraph(String appJar, File exclusionFile) throws IOException, WalaException, CallGraphBuilderCancelException, InvalidClassFileException {
         AnalysisScope scope = AnalysisScopeReader.makeJavaBinaryAnalysisScope(appJar, new File("Exclusions.txt"));
 
         ClassHierarchy cha = ClassHierarchyFactory.make(scope);
@@ -86,6 +87,7 @@ public class TestCFG {
         int num = 0;
 
         for (CGNode node : g) {
+            IR ir = node.getIR();
             num++;
             if (node.getIR() != null && !node.getIR().isEmptyIR()) {
                 EdgeFilter<ISSABasicBlock> exceptionAnalysedEdgeFilter = new ExceptionAnalysis2EdgeFilter(analysis, node);
@@ -93,29 +95,34 @@ public class TestCFG {
                 ExceptionFilter2EdgeFilter<ISSABasicBlock> filterOnlyEdgeFilter = new ExceptionFilter2EdgeFilter<>(filter.getFilter(node), cha, cfg_orig);
                 ControlFlowGraph<SSAInstruction, ISSABasicBlock> cfg = PrunedCFG.make(cfg_orig, filterOnlyEdgeFilter);
                 ControlFlowGraph<SSAInstruction, ISSABasicBlock> exceptionPruned = PrunedCFG.make(cfg_orig, exceptionAnalysedEdgeFilter);
-//                for (ISSABasicBlock block : exceptionPruned) {
-//                    if (exceptionPruned.containsNode(block)) {
-//                        for (ISSABasicBlock normalSucc : cfg.getNormalSuccessors(block)) {
-//                            if (!exceptionPruned.getNormalSuccessors(block).contains(normalSucc)) {
-//                                System.out.println(node.getMethod().getDeclaringClass().getName().getClassName().toString());
-//                            }
-//                        }
-//                    }
-//                }
 
-                Dominators<ISSABasicBlock> dominators = Dominators.make(exceptionPruned, exceptionPruned.entry());
 
-                for (ISSABasicBlock block : exceptionPruned) {
-                    for (SSAInstruction inst : block) {
-                        if (inst.toString().contains("conditional branch")) {
-                            for (Iterator<ISSABasicBlock> itrIn = exceptionPruned.getPredNodes(block); itrIn.hasNext(); ) {
-                                ISSABasicBlock preBlock = itrIn.next();
-                                for (SSAInstruction in : preBlock) {
-                                    System.out.println(in.toString());
-                                }
-                            }
-                        }
+                Graph domiTree = null;
+
+                AllLoopInfo loopInfo = AllLoopInfo.getAllLoopInfo(cfg_orig);
+
+                for (int headNum : loopInfo.getHeads()) {
+                    System.out.println("headBB: " + headNum);
+                    for (SSAInstruction headInst : cfg_orig.getBasicBlock(headNum)) {
+                        IBytecodeMethod method = (IBytecodeMethod) ir.getMethod();
+                        int bytecodeIndex = method.getBytecodeIndex(headInst.iIndex());
+                        int sourceLineNum = method.getLineNumber(bytecodeIndex);
+                        System.out.println(headInst.toString());
+                        System.out.println("line: " + sourceLineNum);
                     }
+                    System.out.println();
+                }
+
+                if (loopInfo.hasLoop()) {
+                    Dominators<ISSABasicBlock> dominators = Dominators.make(exceptionPruned, cfg_orig.getBasicBlock(1));
+                    domiTree = dominators.dominatorTree();
+                    String dotExe = "dot";
+                    String psFile = "dominatorTree.pdf";
+                    Properties wp = null;
+                    wp = WalaProperties.loadProperties();
+                    wp.putAll(WalaExamplesProperties.loadProperties());
+                    String dotFile = wp.getProperty(WalaProperties.OUTPUT_DIR) + File.separatorChar + PDFTypeHierarchy.DOT_FILE;
+                    DotUtil.<ISSABasicBlock>dotify(domiTree, PDFViewUtil.makeIRDecorator(node.getIR()), dotFile, psFile, dotExe);
                 }
 
                 Properties wp = null;
@@ -123,10 +130,7 @@ public class TestCFG {
                 wp.putAll(WalaExamplesProperties.loadProperties());
                 String dotExe = "dot";
                 String psFile = "cfg" + num + ".pdf";
-                String dotFile =
-                        wp.getProperty(WalaProperties.OUTPUT_DIR)
-                                + File.separatorChar
-                                + PDFTypeHierarchy.DOT_FILE;
+                String dotFile = wp.getProperty(WalaProperties.OUTPUT_DIR) + File.separatorChar + PDFTypeHierarchy.DOT_FILE;
 
                 DotUtil.<ISSABasicBlock>dotify(exceptionPruned, PDFViewUtil.makeIRDecorator(node.getIR()), dotFile, psFile, dotExe);
             }
@@ -138,7 +142,6 @@ public class TestCFG {
     }
 
     private static class ApplicationLoaderFilter implements Predicate<CGNode> {
-
         @Override
         public boolean test(CGNode cgNode) {
             if (cgNode == null) return false;
